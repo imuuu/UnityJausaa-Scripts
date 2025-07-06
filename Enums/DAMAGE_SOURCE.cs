@@ -1,0 +1,9 @@
+public enum DAMAGE_SOURCE
+{
+    PLAYER,
+    ENEMY,
+    ENVIRONMENT,
+    GET_OWNER,
+    FALL,
+    PHYSIC_HAND
+}

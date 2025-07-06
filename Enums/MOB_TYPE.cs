@@ -1,0 +1,22 @@
+public enum MOB_TYPE
+{
+    NONE,
+    PLAYER,
+    SPRING_HEAD,
+    BEE_BOT,
+    BIG_ROBOT,
+    DRILL_HANDS,
+    FLYING_BOT,
+    MINI_TANK,
+    POT,
+    ROBOT_SPIDER,
+    SPHERE_BOT,
+    SPRING_HEAD_ELITE,
+    TOXIC_BUG,
+    TOXIC_WORM,
+    TRASHCAN_BOT,
+    WHEEL_BOT,
+    WHEEL_BOT2,
+    ZOMBIE_BOT,
+    STEAMROLLER_BOT    
+}
