@@ -38,7 +38,7 @@ namespace Game.DropSystem
                 _player = t;
                 OnPlayerStatsUpdated();
             });
-            Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
             Events.OnPlayerStatsUpdated.AddListener(OnPlayerStatsUpdated);
         }
 

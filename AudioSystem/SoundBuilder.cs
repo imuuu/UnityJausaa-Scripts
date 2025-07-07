@@ -49,10 +49,9 @@ namespace Game.AudioSystem
                 soundEmitter.WithRandomPitch();
             }
 
-            if(_soundData.FrequentSound)
-            {
-                _managerSound.FrequentSoundEmitters.Enqueue(soundEmitter);
-            }
+            if (_soundData.FrequentSound)
+                _managerSound.RegisterFrequentEmitter(soundEmitter);
+
             soundEmitter.Play();
 
         }

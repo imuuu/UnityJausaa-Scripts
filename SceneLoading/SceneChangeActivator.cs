@@ -19,12 +19,12 @@ public class SceneChangeActivator : MonoBehaviour
 
     private void Awake()
     {
-        Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
     }
 
     private void OnDestroy()
     {
-        Events.OnPlayableSceneChange.RemoveListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.RemoveListener(OnPlayableSceneChange);
         if (ActionScheduler.Instance != null)
         {
             ActionScheduler.CancelActions(this.GetInstanceID());

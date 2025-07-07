@@ -43,7 +43,7 @@ public class ManagerSpawning : MonoBehaviour
             Destroy(gameObject);
         }
         Events.OnPlayerSet.AddListenerOnce(OnPlayerSet);
-        Events.OnPlayableSceneChange.AddListener(OnSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnSceneChange);
     }
 
     private bool OnSceneChange(SCENE_NAME sceneName)

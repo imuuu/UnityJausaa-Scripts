@@ -30,12 +30,12 @@ namespace Game.UI
             RegisterToManager();
             ActionScheduler.RunNextFrame(() => SetActive(!_closeOnStart));
 
-            Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
         }
 
         private void OnDestroy()
         {
-            Events.OnPlayableSceneChange.RemoveListener(OnPlayableSceneChange);
+            Events.OnPlayableSceneChangeEnter.RemoveListener(OnPlayableSceneChange);
         }
 
         private void OnEnable()

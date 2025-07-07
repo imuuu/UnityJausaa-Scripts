@@ -36,7 +36,7 @@ public class ManagerMob : MonoBehaviour
 
         StartCoroutine(UpdateClosestEnemiesCoroutine());
 
-        Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
     }
 
 

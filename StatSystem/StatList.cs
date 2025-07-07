@@ -43,6 +43,11 @@ namespace Game.StatSystem
 
         public Stat AddStat(Stat stat)
         {
+            if (_stats == null)
+            {
+                _stats = new List<Stat>();
+            }
+
             foreach (Stat existingStat in _stats)
             {
                 foreach (STAT_TYPE statTag in existingStat.GetTags())
@@ -81,6 +86,8 @@ namespace Game.StatSystem
 
         public float GetBaseValue(STAT_TYPE tag)
         {
+            if(_stats == null) return 0f;
+
             foreach (Stat stat in _stats)
             {
                 foreach (STAT_TYPE statTag in stat.GetTags())
@@ -96,6 +103,8 @@ namespace Game.StatSystem
 
         public Stat GetStat(STAT_TYPE tag)
         {
+            if (_stats == null) return null;
+
             foreach (Stat stat in _stats)
             {
                 foreach (STAT_TYPE statTag in stat.GetTags())
@@ -111,6 +120,12 @@ namespace Game.StatSystem
 
         public bool TryGetStat(STAT_TYPE tag, out Stat stat)
         {
+            if (_stats == null)
+            {
+                stat = null;
+                return false;
+            }
+
             foreach (Stat s in _stats)
             {
                 foreach (STAT_TYPE statTag in s.GetTags())
@@ -128,6 +143,11 @@ namespace Game.StatSystem
 
         public void AddModifier(Modifier modifier)
         {
+            if (_stats == null)
+            {
+                Debug.LogWarning("StatList is not initialized. Cannot add modifier.");
+                return;
+            }
             foreach (Stat stat in _stats)
             {
                 foreach (STAT_TYPE statTag in stat.GetTags())
@@ -163,6 +183,8 @@ namespace Game.StatSystem
 
         public bool HasStat(STAT_TYPE type)
         {
+            if (_stats == null) return false;
+
             foreach (Stat stat in _stats)
             {
                 foreach (STAT_TYPE statTag in stat.GetTags())
@@ -178,6 +200,8 @@ namespace Game.StatSystem
 
         public bool HasStat(Stat stat)
         {
+            if (_stats == null) return false;
+
             foreach (var s in stat.GetTags())
             {
                 if (HasStat(s))

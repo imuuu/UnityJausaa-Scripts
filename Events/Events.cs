@@ -53,11 +53,13 @@ public static class Events
     public static readonly EventPoint<SCENE_NAME> OnPlayableScenePreloadReady = new();
     public static readonly EventPoint<SCENE_NAME, float> OnPlayableSceneStaticWaitBeforeLoad = new();
     public static readonly EventPoint<SCENE_NAME> OnActivatePreloadedScene = new();
+
+    
     /// <summary>
     /// Called when the scene changes. Not every scene will be triggered. Only for example: Lobby and ToxicLevel.
     /// </summary>
     /// <returns></returns>
-    public static readonly EventPoint<SCENE_NAME> OnPlayableSceneChange = new();
+    public static readonly EventPoint<SCENE_NAME> OnPlayableSceneChangeEnter = new();
 
     public static readonly EventPoint<float> OnPlayerDamageTaken = new();
 

@@ -33,13 +33,13 @@ public class Player : MonoBehaviour, IStatList
 
     private void OnEnable()
     {
-        Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
         Events.OnUIPageClose.AddListener(OnUIPageClose);
     }
 
     private void OnDisable()
     {
-        Events.OnPlayableSceneChange.RemoveListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.RemoveListener(OnPlayableSceneChange);
         Events.OnUIPageClose.RemoveListener(OnUIPageClose);
     }
 

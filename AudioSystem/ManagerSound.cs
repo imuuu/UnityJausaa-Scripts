@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Nova;
 using Sirenix.OdinInspector;
 using UnityEngine;
@@ -17,38 +16,37 @@ namespace Game.AudioSystem
         [ShowInInspector] private readonly List<SoundEmitter> _activeSoundEmitters = new();
         [ShowInInspector] private readonly List<SoundEmitterCustom> _activeSoundEmitterCustom = new();
 
-        private readonly Dictionary<AudioSoundData, SoundEmitterQueue> _frequentBuckets = new ();
+        private readonly Dictionary<AudioSoundData, SoundEmitterQueue> _frequentQueues
+            = new Dictionary<AudioSoundData, SoundEmitterQueue>();
 
         [SerializeField] private SoundEmitter _soundEmitterPrefab;
         [SerializeField] private bool _collectionCheck = true;
         [SerializeField] private int _defaultCapacity = 10;
         [SerializeField] private int _maxPoolSize = 100;
         [SerializeField] private int _maxSoundInstances = 30;
-
         [SerializeField] private bool _debug = false;
 
         private void Awake()
         {
-            //Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+            Application.runInBackground = true;
         }
 
         private void Start()
         {
             if (Instance == null) Instance = this;
-            else Destroy(gameObject);
-
+            else
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Events.OnPlayableScenePreloadReady.AddListener(OnPlayableSceneChange);
             InitializePool();
         }
 
-        private bool OnPlayableSceneChange(SCENE_NAME sceneName)
+        private bool OnPlayableSceneChange(SCENE_NAME param)
         {
             ClearSoundEmitters();
             return true;
-        }
-
-        public SoundBuilder CreateSound()
-        {
-            return new SoundBuilder(this);
         }
 
         private void InitializePool()
@@ -66,56 +64,36 @@ namespace Game.AudioSystem
         [Button]
         private void ClearSoundEmitters()
         {
-            Debug.Log("[ManagerSounds] PlayableSceneChange: Clearing sound emitters");
+            Debug.Log("[ManagerSounds] Clearing all sound emitters");
 
-            // 1) Stop all emitters without releasing them to the pool
-            foreach (var emitter in _activeSoundEmitters)
-                emitter.Stop(returnPool: false);
+            foreach (var e in _activeSoundEmitters)
+                e.Stop(returnPool: false);
 
-            // 2) Now return them all to the pool (this will remove them from _activeSoundEmitters)
-            foreach (var emitter in _activeSoundEmitters.ToArray())
-                ReturnToPool(emitter);
+            foreach (var e in _activeSoundEmitters.ToArray())
+                ReturnToPool(e);
 
-            // 3) Clear any lingering trackers
             _activeSoundEmitters.Clear();
-            _frequentBuckets.Clear();
+            _frequentQueues.Clear();
 
-            // 4) Clean up custom emitters (if you want to stop & unregister them, too)
             foreach (var custom in _activeSoundEmitterCustom.ToArray())
             {
-                custom.Stop(returnPool: false);   // assuming SoundEmitterCustom also has that overload
+                custom.Stop(returnPool: false);
                 UnregisterCustomSoundEmitter(custom);
             }
         }
 
+        public SoundBuilder CreateSound()
+            => new SoundBuilder(this);
 
         /// <summary>
-        /// Returns true if we can play (and will stop the oldest if we’re at capacity), false if something went wrong.
+        /// Should we evict the oldest “frequent” emitter so you can play again?
         /// </summary>
-        public bool CanPlaySound(AudioSoundData soundData)
+        public bool CanPlaySound(AudioSoundData data)
         {
-            // non-frequent sounds always allowed
-            if (!soundData.FrequentSound)
-                return true;
+            if (!data.FrequentSound) return true;
 
-            // get or create the queue for this clip
-            if (!_frequentBuckets.TryGetValue(soundData, out var queue))
-            {
-                queue = new SoundEmitterQueue(_maxSoundInstances);
-                _frequentBuckets[soundData] = queue;
-            }
-
-            // if we’re full, pop & stop the oldest emitter (freeing up one slot)
+            var queue = GetOrCreateQueue(data);
             if (queue.Count >= _maxSoundInstances)
-            {
-                // if we can dequeue, stop the oldest emitter
-                if (!TryDequeueAndStop(queue))
-                {
-                    // if we couldn't dequeue, we can't play this sound
-                    Debug.LogWarning($"Cannot play sound {soundData.name}: max instances reached.");
-                    return false;
-                }
-            }
             {
                 var oldest = queue.Dequeue();
                 if (oldest != null)
@@ -123,149 +101,151 @@ namespace Game.AudioSystem
                     oldest.Stop(returnPool: true);
                     return true;
                 }
-                else
-                {
-                    // somehow we dequeued a null – bail
-                    Debug.LogWarning("Frequent queue returned null emitter");
-                    return false;
-                }
+                Debug.LogWarning("Frequent queue returned null emitter");
+                return false;
             }
-
-
-            // slot available
             return true;
         }
+
         public SoundEmitter GetSoundEmitter()
         {
             if (_activeSoundEmitters.Count >= _maxSoundInstances)
             {
-                Debug.LogWarning("Max sound instances reached. Cannot create more emitters.");
+                Debug.LogWarning("Max global sound instances reached");
                 return null;
             }
-
             return _soundEmitterPool.Get();
+        }
+
+        /// <summary>
+        /// Call this immediately after you Get() and Play() a frequent emitter.
+        /// </summary>
+        public void RegisterFrequentEmitter(SoundEmitter emitter)
+        {
+            var data = emitter.GetSoundData();
+            if (!data.FrequentSound) return;
+            GetOrCreateQueue(data).Enqueue(emitter);
         }
 
         public void ReturnToPool(SoundEmitter emitter)
         {
             var data = emitter.GetSoundData();
-            if (data.FrequentSound && _frequentBuckets.TryGetValue(data, out var bucket))
-            {
-                // rebuild queue without this emitter
-                _frequentBuckets[data]
-                    = new Queue<SoundEmitter>(bucket.Where(e => e != emitter));
-            }
+            if (data.FrequentSound && _frequentQueues.TryGetValue(data, out var q))
+                q.Remove(emitter);
+
             _soundEmitterPool.Release(emitter);
         }
 
-        private void OnDestroyPoolObject(SoundEmitter emitter)
+        private void OnDestroyPoolObject(SoundEmitter e) => Destroy(e.gameObject);
+
+        private void OnReturnedToPool(SoundEmitter e)
         {
-            Destroy(emitter.gameObject);
+            e.gameObject.SetActive(false);
+            _activeSoundEmitters.Remove(e);
         }
 
-        private void OnReturnedToPool(SoundEmitter emitter)
+        private void OnTakeFromPool(SoundEmitter e)
         {
-            emitter.gameObject.SetActive(false);
-            _activeSoundEmitters.Remove(emitter);
-        }
-
-        private void OnTakeFromPool(SoundEmitter emitter)
-        {
-            emitter.gameObject.SetActive(true);
-            _activeSoundEmitters.Add(emitter);
+            e.gameObject.SetActive(true);
+            _activeSoundEmitters.Add(e);
         }
 
         private SoundEmitter CreateSoundEmitter()
         {
-            SoundEmitter soundEmitter = Instantiate(_soundEmitterPrefab, transform);
-            soundEmitter.gameObject.SetActive(false);
-            return soundEmitter;
+            var e = Instantiate(_soundEmitterPrefab, transform);
+            e.gameObject.SetActive(false);
+            return e;
         }
 
-        public bool IsDebug()
+        private SoundEmitterQueue GetOrCreateQueue(AudioSoundData data)
         {
-            return _debug;
-        }
-
-        public void RegisterCustomSoundEmitter(SoundEmitterCustom soundEmitterCustom)
-        {
-            if (_activeSoundEmitterCustom.Contains(soundEmitterCustom)) return;
-            _activeSoundEmitterCustom.Add(soundEmitterCustom);
-        }
-
-        public void UnregisterCustomSoundEmitter(SoundEmitterCustom soundEmitterCustom)
-        {
-            if (!_activeSoundEmitterCustom.Contains(soundEmitterCustom)) return;
-            _activeSoundEmitterCustom.Remove(soundEmitterCustom);
-        }
-    }
-    
-    // Simple fixed-capacity queue without any Linq or allocations
-public class SoundEmitterQueue
-{
-    private readonly SoundEmitter[] _buffer;
-    private int _head;   // index of oldest
-    private int _tail;   // next free slot
-    private int _count;
-
-    public int Count => _count;
-
-    public SoundEmitterQueue(int capacity)
-    {
-        _buffer = new SoundEmitter[capacity];
-        _head = 0;
-        _tail = 0;
-        _count = 0;
-    }
-
-    public void Enqueue(SoundEmitter e)
-    {
-        if (_count == _buffer.Length)
-            throw new InvalidOperationException("Queue is full");
-
-        _buffer[_tail] = e;
-        _tail = (_tail + 1) % _buffer.Length;
-        _count++;
-    }
-
-    public SoundEmitter Dequeue()
-    {
-        if (_count == 0) return null;
-
-        var e = _buffer[_head];
-        _buffer[_head] = null; // help GC
-        _head = (_head + 1) % _buffer.Length;
-        _count--;
-        return e;
-    }
-
-    public void Remove(SoundEmitter target)
-    {
-        // find it, then shift everything down
-        int idx = -1;
-        for (int i = 0; i < _count; i++)
-        {
-            int pos = (_head + i) % _buffer.Length;
-            if (_buffer[pos] == target)
+            if (!_frequentQueues.TryGetValue(data, out var q))
             {
-                idx = pos;
-                break;
+                q = new SoundEmitterQueue(_maxSoundInstances);
+                _frequentQueues[data] = q;
             }
+            return q;
         }
-        if (idx < 0) return;
 
-        // shift everything between head and tail
-        int next = (idx + 1) % _buffer.Length;
-        while (idx != _tail)
+        public bool IsDebug() => _debug;
+
+        public void RegisterCustomSoundEmitter(SoundEmitterCustom c)
         {
-            _buffer[idx] = _buffer[next];
-            idx = next;
-            next = (next + 1) % _buffer.Length;
+            if (!_activeSoundEmitterCustom.Contains(c))
+                _activeSoundEmitterCustom.Add(c);
         }
-        // back up tail one slot
-        _tail = (_tail - 1 + _buffer.Length) % _buffer.Length;
-        _buffer[_tail] = null;
-        _count--;
+
+        public void UnregisterCustomSoundEmitter(SoundEmitterCustom c)
+        {
+            if (_activeSoundEmitterCustom.Contains(c))
+                _activeSoundEmitterCustom.Remove(c);
+        }
     }
-}
+
+    /// <summary>
+    /// Fixed-capacity ring buffer for SoundEmitter, no LINQ or extra allocations.
+    /// </summary>
+    public class SoundEmitterQueue
+    {
+        private readonly SoundEmitter[] _buffer;
+        private int _head, _tail, _count;
+
+        public int Count => _count;
+
+        public SoundEmitterQueue(int capacity)
+        {
+            if (capacity < 1)
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+            _buffer = new SoundEmitter[capacity];
+            _head = _tail = _count = 0;
+        }
+
+        public void Enqueue(SoundEmitter e)
+        {
+            if (_count == _buffer.Length)
+                throw new InvalidOperationException("Queue is full");
+            _buffer[_tail] = e;
+            _tail = (_tail + 1) % _buffer.Length;
+            _count++;
+        }
+
+        public SoundEmitter Dequeue()
+        {
+            if (_count == 0) return null;
+            var e = _buffer[_head];
+            _buffer[_head] = null;
+            _head = (_head + 1) % _buffer.Length;
+            _count--;
+            return e;
+        }
+
+        public void Remove(SoundEmitter target)
+        {
+            if (_count == 0) return;
+            // find it
+            int idx = -1;
+            for (int i = 0; i < _count; i++)
+            {
+                int pos = (_head + i) % _buffer.Length;
+                if (_buffer[pos] == target)
+                {
+                    idx = pos;
+                    break;
+                }
+            }
+            if (idx < 0) return;
+            // shift down
+            int next = (idx + 1) % _buffer.Length;
+            while (idx != _tail)
+            {
+                _buffer[idx] = _buffer[next];
+                idx = next;
+                next = (next + 1) % _buffer.Length;
+            }
+            // back up tail one
+            _tail = (_tail - 1 + _buffer.Length) % _buffer.Length;
+            _buffer[_tail] = null;
+            _count--;
+        }
+    }
 }

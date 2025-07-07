@@ -5,6 +5,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Sirenix.OdinInspector;
 using ReadOnlyAttribute = Sirenix.OdinInspector.ReadOnlyAttribute;
+using System;
 
 namespace Game.ChunkSystem
 {
@@ -81,13 +82,20 @@ namespace Game.ChunkSystem
             if (Instance == null) Instance = this;
             else Destroy(this);
 
+
             if (_enableChunks)
             {
                 _spawnablesInChunk = new Dictionary<Vector2Int, List<ChunkItem>>();
                 _spawnableLootTable = new LootTable<ChunkItem>(_spawnableObjectsLootTable);
                 GenerateChunks();
             }
-                
+
+            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
+        }
+
+        private bool OnPlayableSceneChange(SCENE_NAME param)
+        {
+            return true;
         }
 
         private void Start()
@@ -96,7 +104,6 @@ namespace Game.ChunkSystem
 
             Player.AssignTransformWhenAvailable((t) => _playerTransform = t);
 
-            //_ = FindAllChunkActivatorsAsync();
         }
 
 
@@ -212,6 +219,10 @@ namespace Game.ChunkSystem
         private void Update()
         {
             if (!_enableChunks) return;
+
+            if (SceneLoader.GetCurrentScene() == SCENE_NAME.Lobby) return;
+
+            if (!SceneLoader.IsCurrentScenePlayable()) return;
 
             if (_dynamicActivation)
             {

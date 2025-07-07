@@ -62,7 +62,7 @@ namespace Game.BuffSystem
         private void Start()
         {
             Events.OnPlayerLevelChange.AddListener(OnPlayerLevelChange);
-            Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
         }
 
         private bool OnPlayableSceneChange(SCENE_NAME sceneName)

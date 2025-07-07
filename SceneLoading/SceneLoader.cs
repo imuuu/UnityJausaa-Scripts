@@ -70,9 +70,9 @@ public class SceneLoader : MonoBehaviour
     }
 
     public static void SetCurrentScene(SCENE_NAME sceneName)
-    {
+    {   
         _currentScene = sceneName;
-        Events.OnPlayableSceneChange.Invoke(sceneName);
+        Events.OnPlayableSceneChangeEnter.Invoke(sceneName);
     }
 
     public static SCENE_NAME GetCurrentScene()

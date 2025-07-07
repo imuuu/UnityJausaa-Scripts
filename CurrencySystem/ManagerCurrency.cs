@@ -54,7 +54,7 @@ public class ManagerCurrency : MonoBehaviour
         Initialize();
 
         LoadAllBalances();
-        Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
     }
 
     private void OnApplicationQuit()

@@ -34,7 +34,7 @@ namespace Game.SkillSystem
 
             FillRemainingSlots();
 
-            Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
         }
 
         private bool OnPlayableSceneChange(SCENE_NAME sceneName)

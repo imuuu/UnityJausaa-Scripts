@@ -272,6 +272,17 @@ namespace Game.HitDetectorSystem
             }
         }
 
+        public void SetStats(StatList statList)
+        {
+            _statList = statList;
+
+            if(_statList.TryGetStat(STAT_TYPE.PIERCE_CHANCE, out Stat stat))
+            {
+                _piercingChance = stat.GetValue();
+            }
+
+        }
+
         public StatList GetStats()
         {
             return _statList;
@@ -329,10 +340,7 @@ namespace Game.HitDetectorSystem
             }
         }
 
-        public void SetStats(StatList statList)
-        {
-            _statList = statList;
-        }
+       
 
     }
 }

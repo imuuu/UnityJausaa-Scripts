@@ -45,7 +45,7 @@ public class ManagerXp : MonoBehaviour, IEnabled
     private void Start()
     {
         Events.OnDeath.AddListener(OnDeath);
-        Events.OnPlayableSceneChange.AddListener(OnPlayableSceneChange);
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
     }
 
     private bool OnPlayableSceneChange(SCENE_NAME param)
