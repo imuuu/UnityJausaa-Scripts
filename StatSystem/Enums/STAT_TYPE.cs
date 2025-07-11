@@ -28,5 +28,6 @@ namespace Game.StatSystem
         PIERCE_CHANCE,
         DAMAGE_PERCENT_EACH_PIERCE,
         AREA_DAMAGE_MULTIPLIER,
+        BLOCK_CHANCE,
     }
 }

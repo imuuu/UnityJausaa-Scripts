@@ -3,13 +3,13 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static Game.StatSystem.Modifier;
 
 namespace Game.StatSystem
 {
     [System.Serializable]
     public class Modifier
     {
+        public int ID { get; set; } = -1;
         public enum VALUE_RANGE { SINGLE, RANGE }
         public enum DECIMAL_ACCURACY { ZERO, ONE, TWO, NONE }
 
@@ -54,6 +54,14 @@ namespace Game.StatSystem
             _value = value;
         }
 
+        public Modifier(STAT_TYPE target, MODIFIER_TYPE type, float value)
+        {
+            _target = target;
+            _type = type;
+            _valueRange = VALUE_RANGE.SINGLE;
+            _value = value;
+        }
+
         public float GenerateValue()
         {
             if (_valueRange == VALUE_RANGE.SINGLE)
@@ -95,12 +103,27 @@ namespace Game.StatSystem
 
         public float GetValue()
         {
-            if(_resultValue <= 0f)
+            if (_resultValue <= 0f)
             {
                 GenerateValue();
             }
 
             return _resultValue;
+        }
+
+        public void SetValue(float value)
+        {
+            if (_valueRange == VALUE_RANGE.SINGLE)
+            {
+                _value = value;
+                _resultValue = value;
+            }
+            else if (_valueRange == VALUE_RANGE.RANGE)
+            {
+                _min = value;
+                _max = value;
+                _resultValue = value;
+            }
         }
 
         public MODIFIER_TYPE GetTYPE()
@@ -199,11 +222,15 @@ namespace Game.StatSystem
         {
             return CloneModifier(this);
         }
-
         public override string ToString()
         {
             string valueString = _valueRange == VALUE_RANGE.SINGLE ? _value.ToString() : $"[{_min}, {_max}]";
             return $"Modifier: Target: {_target}, Type: {_type}, Value: {valueString}, Accuracy: {_accuracy}";
+        }
+        
+        public bool IsSameKind(Modifier other)
+        {
+            return _target == other._target && _type == other._type;
         }
     }
 }

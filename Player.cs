@@ -5,7 +5,7 @@ using Game.StatSystem;
 using Game.UI;
 using UnityEngine;
 
-public class Player : MonoBehaviour, IStatList
+public class Player : MonoBehaviour, IMainStats
 {
     public static Player Instance { get; private set; }
     private ManagerGame ManagerGame => ManagerGame.Instance;

@@ -54,7 +54,7 @@ public static class Events
     public static readonly EventPoint<SCENE_NAME, float> OnPlayableSceneStaticWaitBeforeLoad = new();
     public static readonly EventPoint<SCENE_NAME> OnActivatePreloadedScene = new();
 
-    
+
     /// <summary>
     /// Called when the scene changes. Not every scene will be triggered. Only for example: Lobby and ToxicLevel.
     /// </summary>
@@ -75,6 +75,12 @@ public static class Events
     /// </summary>
     public static readonly EventPoint<CURRENCY, int> OnCurrencyBalanceChange = new();
 
+
+    /// <summary>
+    /// Called when block happens
+    /// </summary>
+    public static EventPoint<IDamageDealer, IDamageReceiver> OnBlockHappened = new();
+
     /// <summary>
     /// Called when the player interacts with an object in 3D space normal using the "E" key.
     /// </summary>
@@ -82,6 +88,8 @@ public static class Events
     public static readonly EventPoint OnEscButtonPress = new();
 
     public static EventPoint OnPlayerStatsUpdated = new(); 
+    
+    
 
     //public static readonly EventPoint<GroupSpawner,GameObject> OnSpawnerObjectDetach = new EventPoint<GroupSpawner,GameObject>();
 

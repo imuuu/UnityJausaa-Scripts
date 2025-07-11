@@ -35,6 +35,32 @@ namespace Game.StatSystem
             _effectByTags = new List<STAT_TYPE> { tag };
         }
 
+        // public void AddStatValues(Stat stat)
+        // {
+        //     if (stat == null) return;
+
+        //     if (_effectByTags != stat._effectByTags)
+        //     {
+        //         Debug.LogError($"Cannot add stat values from {stat} to {this} because their tags do not match.");
+        //         return;
+        //     }
+        //     _baseValue += stat._baseValue;
+
+        //     for (int i = _addedModifiers.Count - 1; i >= 0; i--)
+        //     {
+        //         Modifier mainMod = _addedModifiers[i];
+        //         float mainModValue = mainMod.GetValue();
+        //         for (int l = stat._addedModifiers.Count - 1; l >= 0; l--)
+        //         {
+        //             Modifier newMod = stat._addedModifiers[l];
+        //             if (newMod.IsSameKind(mainMod))
+        //             {
+        //                 //maybe add here
+        //             }
+        //         }
+        //     }
+        // }
+
         public void AddEffectByTag(STAT_TYPE tag)
         {
             if (_effectByTags == null)
@@ -59,6 +85,42 @@ namespace Game.StatSystem
             {
                 Debug.LogError($"Invalid modifier: {mod.GetTYPE()} for stat: {this}");
                 return;
+            }
+            _addedModifiers.Add(mod);
+            _dirty = true;
+        }
+
+        public Modifier GetModifierByID(int id)
+        {
+            if (_addedModifiers == null || _addedModifiers.Count == 0) return null;
+
+            foreach (Modifier mod in _addedModifiers)
+            {
+                if (mod.ID == id)
+                {
+                    return mod;
+                }
+            }
+            return null;
+        }
+
+        public void AddOrReplaceModifier(Modifier mod)
+        {
+            if (_addedModifiers == null)
+            {
+                _addedModifiers = new List<Modifier>();
+            }
+
+            if (mod == null || !IsValidModifier(mod))
+            {
+                Debug.LogError($"Invalid modifier: {mod} for stat: {this}");
+                return;
+            }
+
+            Modifier existingMod = GetModifierByID(mod.ID);
+            if (existingMod != null)
+            {
+                _addedModifiers.Remove(existingMod);
             }
             _addedModifiers.Add(mod);
             _dirty = true;
@@ -157,6 +219,13 @@ namespace Game.StatSystem
         {
             if (_addedModifiers != null) _addedModifiers.Clear();
             _dirty = true;
+        }
+
+        public Modifier CreateEmptyModifier(MODIFIER_TYPE type, float value = 0f)
+        {
+            Modifier mod = new Modifier(_effectByTags[0],type, value);
+            
+            return mod;
         }
     }
 }

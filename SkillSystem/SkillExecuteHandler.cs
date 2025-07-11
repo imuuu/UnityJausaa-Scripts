@@ -177,6 +177,8 @@ namespace Game.SkillSystem
 
             skill.StartSkill();
 
+            if (skill is Ability) ManagerSkills.Instance.OnAbilityStarted(skill);
+
             if (skill is IDuration duration)
             {
                 duration.SetCurrentDuration((skill is IManualEnd) ? 99999 : duration.GetDuration());
@@ -446,6 +448,9 @@ namespace Game.SkillSystem
             {
                 _skillsFixedUpdate.Remove(fixedUpdateSkill);
             }
+
+            if (skill is Ability) ManagerSkills.Instance.OnAbilityEnded(skill);
+
             skill.EndSkill();
         }
 

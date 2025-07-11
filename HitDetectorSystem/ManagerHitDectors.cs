@@ -297,15 +297,87 @@ namespace Game.HitDetectorSystem
                 return false;
             }
 
+            GameObject detectorObject = detector.GetOwner().GetRootOwner().GetGameObject();
+            IDamageDealer damageDealer = hitInfo.CustomDamageDealer ?? detectorObject.GetComponent<IDamageDealer>();
+
             if (hitHasOwner)
             {
-                // If the hit object belongs to the same owner type, ignore the hit.
-                if (hitObjectOwner.GetRootOwner().GetOwnerType() == detector.GetOwner().GetRootOwner().GetOwnerType())
+                OWNER_TYPE dealerOwnerType = detector.GetOwner().GetRootOwner().GetOwnerType();
+                OWNER_TYPE receiverOwnerType = hitObjectOwner.GetRootOwner().GetOwnerType();
+                if (dealerOwnerType == receiverOwnerType)
                     return false;
 
                 if (_debug)
                 {
                     Debug.Log($"ManagerHitDectors: {hitObjectOwner.GetRootOwner().GetGameObject().name} hit {hitObject.name} - OwnerType: {hitObjectOwner.GetRootOwner().GetGameObject().name}");
+                }
+
+                IDamageReceiver receiver = hitObjectOwner.GetRootOwner().GetGameObject().GetComponent<IDamageReceiver>();
+
+                if (receiverOwnerType == OWNER_TYPE.PLAYER)
+                {
+                    float playerBlockChance = Player.Instance.GetStatList().GetValueOfStat(StatSystem.STAT_TYPE.BLOCK_CHANCE);
+
+                    if (playerBlockChance > 0f && Random.value * 100f < playerBlockChance)
+                    {
+                        if (_debug)
+                        {
+                            Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} - Player blocked the hit from {detectorObject.name}");
+                        }
+
+                        Events.OnBlockHappened.Invoke( damageDealer, receiver);
+
+                        return true; // hit happened but was blocked
+                    }
+                }
+                
+                // todo if mobs have block
+
+                if (receiver != null && damageDealer != null)
+                {
+                    // if (_debug)
+                    // {
+                    //     Debug.Log("==> DamageDealer: " + detector.GetOwner().GetRootOwner().GetGameObject().name
+                    //         + " - DamageReceiver: " + hitObjectOwner.GetRootOwner().GetGameObject().name);
+                    // }
+
+                    StatList dealerStats = null;
+                    StatList receiverStats = null;
+
+                    if (detector is IStatReceiver dealerStatReceiver) dealerStats = dealerStatReceiver.GetStats();
+
+                    if (receiver is IStatReceiver receiverStatReceiver) receiverStats = receiverStatReceiver.GetStats();
+
+                    if (dealerStats != null)
+                    {
+                        if (dealerStats != null && detector.TotalPierces > 0 && dealerStats.TryGetStat(StatSystem.STAT_TYPE.DAMAGE_PERCENT_EACH_PIERCE, out Stat stat))
+                        {
+                            float damage = damageDealer.GetDamage();
+                            damage = damage * (1f + stat.GetValue() * 0.01f * detector.TotalPierces);
+
+                            if (damage < 1f) damage = 1f;
+
+                            damageDealer.SetTemporaryDamage(damage);
+                            //Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} - Total Pierces: {detector.TotalPierces} - New Damage: {damage}");
+                        }
+                    }
+
+                    if (_debug)
+                    {
+                        if (detector is HitDetector_AreaDamage)
+                            Debug.Log($"ManagerHitDectors: AreaDamage detected for {detector.GetGameObject().name} - DamageDealer: {detector.GetOwner().GetRootOwner().GetGameObject().name} - DamageReceiver: {hitObjectOwner.GetRootOwner().GetGameObject().name} - Damage: {damageDealer.GetDamage()}");
+                        else
+                            Debug.Log($"====> DamageDealer: {detector.GetOwner().GetRootOwner().GetGameObject().name} - DamageReceiver: {hitObjectOwner.GetRootOwner().GetGameObject().name} - Damage: {damageDealer.GetDamage()}");
+                    }
+                    bool damageHappened = DamageCalculator.CalculateDamage(damageDealer, receiver, dealerStats, receiverStats);
+
+                    //Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} hit {hitObject.name} - DamageHappened: {damageHappened} - ownerType: {hitObjectOwner2.GetRootOwner().GetOwnerType()} - orginal owner {hitObjectOwner.GetRootOwner().GetOwnerType()}");
+                    if (damageHappened && hitObjectOwner.GetRootOwner().GetOwnerType() == OWNER_TYPE.PLAYER)
+                    {
+                        Events.OnPlayerDamageTaken.Invoke(damageDealer.GetDamage());
+                    }
+
+                    damageDealer.RemoveTemporaryDamage();
                 }
             }
             else
@@ -314,57 +386,9 @@ namespace Game.HitDetectorSystem
                     Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} hit {hitObject.name} - No Owner");
             }
 
-            GameObject detectorObject = detector.GetOwner().GetRootOwner().GetGameObject();
-            IDamageDealer damageDealer = hitInfo.CustomDamageDealer ?? detectorObject.GetComponent<IDamageDealer>();
+           
 
-            if (hitHasOwner && hitObjectOwner.GetRootOwner().GetGameObject().TryGetComponent(out IDamageReceiver damageReceiver)
-                && damageDealer != null)
-            {
-                // if (_debug)
-                // {
-                //     Debug.Log("==> DamageDealer: " + detector.GetOwner().GetRootOwner().GetGameObject().name
-                //         + " - DamageReceiver: " + hitObjectOwner.GetRootOwner().GetGameObject().name);
-                // }
-
-                //Debug.Log($"Does is manipulated? {detector.GetOwner().IsManipulated()} ");
-                if (detector is IStatReceiver statReceiver)
-                {
-                    if (statReceiver.GetStats() != null && detector.TotalPierces > 0 && statReceiver.GetStats().TryGetStat(StatSystem.STAT_TYPE.DAMAGE_PERCENT_EACH_PIERCE, out Stat stat))
-                    {
-                        float damage = damageDealer.GetDamage();
-                        damage = damage * (1f + stat.GetValue() * 0.01f * detector.TotalPierces);
-
-                        if (damage < 1f) damage = 1f;
-
-                        damageDealer.SetTemporaryDamage(damage);
-                        //Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} - Total Pierces: {detector.TotalPierces} - New Damage: {damage}");
-                    }
-                }
-
-                if (_debug)
-                {
-                    if (detector is HitDetector_AreaDamage)
-                        Debug.Log($"ManagerHitDectors: AreaDamage detected for {detector.GetGameObject().name} - DamageDealer: {detector.GetOwner().GetRootOwner().GetGameObject().name} - DamageReceiver: {hitObjectOwner.GetRootOwner().GetGameObject().name} - Damage: {damageDealer.GetDamage()}");
-                    else
-                        Debug.Log($"====> DamageDealer: {detector.GetOwner().GetRootOwner().GetGameObject().name} - DamageReceiver: {hitObjectOwner.GetRootOwner().GetGameObject().name} - Damage: {damageDealer.GetDamage()}");
-                }
-
-                StatList dealerStats = null;
-                StatList receiverStats = null;
-                if (detector is IStatReceiver dealerStatReceiver) dealerStats = dealerStatReceiver.GetStats();
-
-                if(damageReceiver is IStatReceiver receiverStatReceiver) receiverStats = receiverStatReceiver.GetStats();
-
-                bool damageHappened = DamageCalculator.CalculateDamage(damageDealer, damageReceiver, dealerStats, receiverStats);
-
-                //Debug.Log($"ManagerHitDectors: {detector.GetGameObject().name} hit {hitObject.name} - DamageHappened: {damageHappened} - ownerType: {hitObjectOwner2.GetRootOwner().GetOwnerType()} - orginal owner {hitObjectOwner.GetRootOwner().GetOwnerType()}");
-                if (damageHappened && hitObjectOwner.GetRootOwner().GetOwnerType() == OWNER_TYPE.PLAYER)
-                {
-                    Events.OnPlayerDamageTaken.Invoke(damageDealer.GetDamage());
-                }
-
-                damageDealer.RemoveTemporaryDamage();
-            }
+            
 
             detector.OnHit(hitInfo);
 

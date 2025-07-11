@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.StatSystem;
 using Sirenix.OdinInspector;
 using Unity.Entities.UniversalDelegates;
 using UnityEngine;
@@ -24,8 +26,21 @@ namespace Game.SkillSystem
         [Title("Skill Execute Handler")]
         [ShowInInspector, ReadOnly]
         private SkillExecuteHandler _skillExecuteHandler = new SkillExecuteHandler();
-
         private SCENE_NAME _activeFightScene = SCENE_NAME.ToxicLevel;
+
+        //private Dictionary<GameObject, StatList> _skillStatsForGameObjects = new ();
+
+        /// <summary>
+        /// Used for triggering skill group items.
+        /// for example for shields, we have multiple shield skills and we only one trigger one of them at a time. 
+        /// For this the id is same for all shield skills.
+        /// </summary>
+        private Dictionary<int, List<ISkillGroupItemTrigger>> _skillGroupItemTriggers = new();
+
+        // ==== Event Contexts ====
+        private BlockEventContext _blockEventContext;
+        // ========================
+
 
         private void Awake()
         {
@@ -35,11 +50,99 @@ namespace Game.SkillSystem
             FillRemainingSlots();
 
             Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
+            Events.OnBlockHappened.AddListener(OnBlockHappened);
         }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+
+            Events.OnPlayableSceneChangeEnter.RemoveListener(OnPlayableSceneChange);
+            Events.OnBlockHappened.RemoveListener(OnBlockHappened);
+        }
+
+        private bool OnBlockHappened(IDamageDealer dealer, IDamageReceiver receiver)
+        {
+            if (_skillGroupItemTriggers.TryGetValue((int)SKILL_GROUP_TAG.MAGIC_SHIELD, out List<ISkillGroupItemTrigger> triggers) && triggers.Count > 0)
+            {
+                int randomIndex = UnityEngine.Random.Range(0, triggers.Count);
+                ISkillGroupItemTrigger randomTrigger = triggers[randomIndex];
+                Debug.Log("Block index and count: " + randomIndex + " / " + triggers.Count);
+
+                if (_blockEventContext == null) _blockEventContext = new BlockEventContext(dealer, receiver);
+                else { _blockEventContext.DamageDealer = dealer; _blockEventContext.DamageReceiver = receiver; }
+
+                randomTrigger.OnSkillGroupItemTrigger(_blockEventContext);
+
+            }
+            return true;
+        }
+
+        public void RegisterSkillGroupItemTrigger(ISkillGroupItemTrigger trigger)
+        {
+            if (trigger == null) return;
+
+            int skillGroupItemID = trigger.SkillGroupItemID;
+
+            if (!_skillGroupItemTriggers.ContainsKey(skillGroupItemID))
+            {
+                _skillGroupItemTriggers[skillGroupItemID] = new List<ISkillGroupItemTrigger>();
+            }
+
+            if (!_skillGroupItemTriggers[skillGroupItemID].Contains(trigger))
+            {
+                Debug.Log($"Registering trigger with ID {trigger.SkillGroupItemID} for skill group item trigger: {trigger}");
+                _skillGroupItemTriggers[skillGroupItemID].Add(trigger);
+            }
+            else
+            {
+                Debug.LogWarning($"Trigger with ID {trigger} is already registered.");
+            }
+        }
+
+        public void RemoveSkillGroupItemTrigger(ISkillGroupItemTrigger trigger)
+        {
+            int skillGroupItemID = trigger.SkillGroupItemID;
+
+            if (trigger == null || !_skillGroupItemTriggers.ContainsKey(skillGroupItemID)) return;
+
+            _skillGroupItemTriggers[skillGroupItemID].Remove(trigger);
+
+            if (_skillGroupItemTriggers[skillGroupItemID].Count == 0)
+            {
+                _skillGroupItemTriggers.Remove(skillGroupItemID);
+            }
+        }
+
+        // public void SetSkillStatForGameObject(GameObject go, Stat stat)
+        // {
+        //     if (go == null || stat == null) return;
+
+        //     if (!_skillStatsForGameObjects.ContainsKey(go))
+        //     {
+        //         _skillStatsForGameObjects[go] = new StatList();
+        //     }
+
+        //     _skillStatsForGameObjects[go].AddStat(stat);
+        // }
+
+        // public Stat GetSkillStatForGameObject(GameObject go, STAT_TYPE statType)
+        // {
+        //     if (go == null) return null;
+
+        //     if (_skillStatsForGameObjects.TryGetValue(go, out StatList statList))
+        //     {
+        //         return statList.GetStat(statType);
+        //     }
+
+        //     return null;
+        // }
 
         private bool OnPlayableSceneChange(SCENE_NAME sceneName)
         {
             _skillExecuteHandler.ClearAllSkills();
+
+            //_skillStatsForGameObjects.Clear();
 
             if (sceneName != SCENE_NAME.Lobby)
             {
@@ -280,6 +383,29 @@ namespace Game.SkillSystem
 
             int randomIndex = UnityEngine.Random.Range(0, nonNullSkills.Count);
             return nonNullSkills[randomIndex];
+        }
+
+        /// <summary>
+        /// Triggered from ExecuteSkillHandler when a skill starts.
+        /// </summary>
+        /// <param name="skill"></param>
+        public void OnAbilityStarted(ISkill skill)
+        {
+            if (skill is ISkillGroupItemTrigger skillGroupItemTrigger)
+            {
+                RegisterSkillGroupItemTrigger(skillGroupItemTrigger);
+            }
+        }
+
+        /// <summary>
+        /// Triggered from ExecuteSkillHandler when a skill ends.
+        /// summary>
+        public void OnAbilityEnded(ISkill skill)
+        {
+            if (skill is ISkillGroupItemTrigger skillGroupItemTrigger)
+            {
+                RemoveSkillGroupItemTrigger(skillGroupItemTrigger);
+            }
         }
 
         // public SkillDefinition GetRandomNotActivePlayerSkill()

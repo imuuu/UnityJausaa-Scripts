@@ -125,7 +125,7 @@ namespace Game.SkillSystem
             IHitDetector hitDetector = target.GetComponent<IHitDetector>();
             if (hitDetector == null) return damageDealer;
 
-            if(hitDetector is IStatReceiver statReceiver)
+            if (hitDetector is IStatReceiver statReceiver)
             {
                 statReceiver.SetStats(_baseStats);
             }
@@ -482,5 +482,28 @@ namespace Game.SkillSystem
         }
 
         #endregion Getters and Setters
+
+        #region Editor Methods
+        [ShowIf("@_baseStats == null")]
+        [Button("Add Default Stats")]
+        [PropertyOrder(-1)]
+        [ColorPalette("Green")]
+        public void AddStats()
+        {
+            if (_baseStats == null)
+            {
+                _baseStats = new StatList();
+                _baseStats.Initialize(new List<STAT_TYPE>
+                {
+                    STAT_TYPE.COOLDOWN,
+                    STAT_TYPE.DURATION,
+                    STAT_TYPE.DAMAGE,
+                });
+            }
+        }
+
+        #endregion Editor Methods   
     }
+    
+    
 }

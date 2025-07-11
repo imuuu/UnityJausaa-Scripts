@@ -86,7 +86,7 @@ namespace Game.StatSystem
 
         public float GetBaseValue(STAT_TYPE tag)
         {
-            if(_stats == null) return 0f;
+            if (_stats == null) return 0f;
 
             foreach (Stat stat in _stats)
             {
@@ -165,6 +165,35 @@ namespace Game.StatSystem
             }
         }
 
+        public void AddOrReplaceModifier(Modifier modifier)
+        {
+            if (_stats == null)
+            {
+                Debug.LogWarning("StatList is not initialized. Cannot add or replace modifier.");
+                return;
+            }
+
+            bool found = false;
+            foreach (Stat stat in _stats)
+            {
+                foreach (STAT_TYPE statTag in stat.GetTags())
+                {
+                    if (statTag == modifier.GetTarget())
+                    {
+                        stat.AddOrReplaceModifier(modifier);
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+
+            if (!found)
+            {
+                Debug.LogWarning("No stat found for modifier target: " + modifier.GetTarget());
+            }
+        }
+
         public void AddModifiers(List<Modifier> modifiers)
         {
             foreach (Modifier modifier in modifiers)
@@ -212,5 +241,6 @@ namespace Game.StatSystem
 
             return false;
         }
+
     }
 }
