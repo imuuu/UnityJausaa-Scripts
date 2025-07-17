@@ -17,7 +17,7 @@ public class UI_WorldIndicator : MonoBehaviour
 
     [SerializeField]
     [ShowIf(nameof(_enableVerticalMoveAnimation))]
-    private VerticalUIblockAnimation _verticalMoveAnimation;
+    private VerticalTransformAnimation _verticalMoveAnimation;
 
     [SerializeField] private bool _enableColorAnimation = false;
     [SerializeField]

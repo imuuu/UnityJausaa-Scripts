@@ -75,6 +75,14 @@ public class Health : MonoBehaviour, IHealth
         {
             _isDead = false;
         }
+
+        if (amount > 0f && UI_ManagerWorldIndicators.Instance != null)
+        {
+            UI_ManagerWorldIndicators.Instance.ShowIndicator(
+                transform.position,
+                INDICATOR_TYPE.HEAL,
+                amount);
+        }
     }
 
     public float GetHealth()

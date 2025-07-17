@@ -30,5 +30,6 @@ namespace Game.StatSystem
         AREA_DAMAGE_MULTIPLIER,
         BLOCK_CHANCE,
         REFLECT_DAMAGE_PERCENT,
+        HEAL,
     }
 }

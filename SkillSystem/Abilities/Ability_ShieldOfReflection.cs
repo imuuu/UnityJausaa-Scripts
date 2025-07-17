@@ -19,8 +19,6 @@ namespace Game.SkillSystem
                 reflectedDamage = 1f;
             }
 
-            
-
             Debug.Log($"===========> ShieldOfReflection: Reflecting {reflectedDamage} damage back to {dealer.GetTransform().name}");
 
             DAMAGE_SOURCE damageSource = receiver.GetTransform().GetComponent<IDamageDealer>()?.GetDamageSource() ?? DAMAGE_SOURCE.ENVIRONMENT;

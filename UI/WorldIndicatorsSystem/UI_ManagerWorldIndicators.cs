@@ -71,6 +71,16 @@ public class UI_ManagerWorldIndicators : MonoBehaviour
 
         UI_WorldIndicator worldIndicator = go.GetComponent<UI_WorldIndicator>();
 
+        if (cfg.RandomizeOffset)
+        {
+            Vector3 randomOffset = new Vector3(
+                Random.Range(cfg.MinRandomOffsetRange.x, cfg.MaxRandomOffsetRange.x),
+                Random.Range(cfg.MinRandomOffsetRange.y, cfg.MaxRandomOffsetRange.y),
+                Random.Range(cfg.MinRandomOffsetRange.z, cfg.MaxRandomOffsetRange.z)
+            );
+            worldPosition += randomOffset;
+        }
+
         Vector3 targetWorldPos = worldPosition + cfg.WorldOffset;
 
         go.transform.position = targetWorldPos;

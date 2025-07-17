@@ -21,8 +21,17 @@ public class IndicatorConfig
     public VertexGradient TextColorGradient;
     public float StartScale = 1f;
 
-    [Header("Layout")]
+    [BoxGroup("World Offset")]
     public Vector3 WorldOffset = Vector3.up * 0.5f;
+    [BoxGroup("World Offset")] public bool RandomizeOffset = false;
+
+    [BoxGroup("World Offset")]
+    [ShowIf(nameof(RandomizeOffset))]
+    public Vector3 MinRandomOffsetRange = Vector3.zero;
+
+    [BoxGroup("World Offset")]
+    [ShowIf(nameof(RandomizeOffset))]
+    public Vector3 MaxRandomOffsetRange = Vector3.zero;
     [Tooltip("How long before it returns to pool")]
     public float Duration = 1f;
 
