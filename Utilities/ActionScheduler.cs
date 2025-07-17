@@ -227,6 +227,8 @@ public class ActionScheduler : MonoBehaviour
 
     /// <summary>
     /// Runs the action when the specified condition is true.
+    /// Runs immediately if the condition is already true.
+    /// If the condition is false, it will be checked every frame until it becomes true.
     /// </summary>
     public static void RunWhenTrue(Func<bool> condition, Action action, object identifier = null)
     {

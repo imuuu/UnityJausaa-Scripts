@@ -69,7 +69,7 @@ namespace Game.PoolSystem
                 this.Options = options;
 
                 DeathController = prefab.GetComponent<IDeathController>();
-                if(DeathController != null) DeathController.SetControlledByPool(true);
+                if (DeathController != null) DeathController.SetControlledByPool(true);
             }
 
             public GameObject Prefab;
@@ -79,9 +79,9 @@ namespace Game.PoolSystem
 
             public PoolOptions Options;
 
-            public Queue<PoolItem> InactiveQueue = new ();
-            public List<PoolItem> ActiveList = new ();  // track active items
-            public Queue<PoolItem> ActiveSpawnOrder = new (); // used for RECYCLING
+            public Queue<PoolItem> InactiveQueue = new();
+            public List<PoolItem> ActiveList = new();  // track active items
+            public Queue<PoolItem> ActiveSpawnOrder = new(); // used for RECYCLING
             public IDeathController DeathController;
         }
 
@@ -103,7 +103,7 @@ namespace Game.PoolSystem
         //TODO remove this and use action scheduler!
         private void Update()
         {
-            if(_returningToHolder.Count > 0)
+            if (_returningToHolder.Count > 0)
             {
                 for (int i = _returningToHolder.Count - 1; i >= 0; i--)
                 {
@@ -161,10 +161,20 @@ namespace Game.PoolSystem
                 }
             }
         }
-        private void GeneratePoolHolder(Pool pool)
+        private void GeneratePoolHolder(Pool pool, GameObject CustomHolder = null)
         {
-            GameObject poolHolder = new GameObject(pool.Prefab.name + "_Pool");
-            poolHolder.transform.SetParent(_poolGroupsHolder.transform);
+            GameObject poolHolder = null;
+            if (CustomHolder != null)
+            {
+                poolHolder = CustomHolder;
+                poolHolder.name = poolHolder.name + "(" + pool.Prefab.name + "_Pool)";
+            }
+            else
+            {
+                poolHolder = new GameObject(pool.Prefab.name + "_Pool");
+                poolHolder.transform.SetParent(_poolGroupsHolder.transform);
+            }
+
             pool.PoolHolder = poolHolder;
         }
 
@@ -172,7 +182,7 @@ namespace Game.PoolSystem
         /// Call this to create a new pool for a given prefab with given options.
         /// If a pool already exists for this prefab, nothing is created.
         /// </summary>
-        public void CreatePrefabPool(GameObject prefab, PoolOptions options)
+        public void CreatePrefabPool(GameObject prefab, PoolOptions options, GameObject CustomHolder = null)
         {
             if (!prefab) return;
 
@@ -187,7 +197,7 @@ namespace Game.PoolSystem
 
             Pool newPool = new Pool(prefab, options);
 
-            GeneratePoolHolder(newPool);
+            GeneratePoolHolder(newPool, CustomHolder);
 
             for (int i = 0; i < options.Min; i++)
             {
@@ -360,9 +370,9 @@ namespace Game.PoolSystem
                 }
             }
 
-            if(gotObject == null) return null;
+            if (gotObject == null) return null;
 
-            if(pool.Options.LifeTimeDuration > 0f)
+            if (pool.Options.LifeTimeDuration > 0f)
             {
                 StartDelayedReturn(gotObject, pool.Options.LifeTimeDuration, POOL_ARRIVE_TYPE.LIFE_TIME);
             }
@@ -391,7 +401,7 @@ namespace Game.PoolSystem
             Pool pool = _pools[poolId];
             PoolItem item = FindPoolItemInActiveList(pool, obj);
 
-            if(item == null)
+            if (item == null)
             {
                 Debug.LogWarning($"ManagerPrefabPooler: Object '{obj.name}' not found in active list? Destroying.");
                 Destroy(obj);
@@ -437,6 +447,22 @@ namespace Game.PoolSystem
             return true;
         }
 
+        public PoolOptions CreateDefaultPoolOption()
+        {
+            PoolOptions poolOptions = new PoolOptions()
+            {
+                Min = 10,
+                Max = 0,
+                PoolType = POOL_TYPE.DYNAMIC,
+                ReturnType = POOL_RETURN_TYPE.MANUAL,
+                EventTriggerType = POOL_EVENT_TRIGGER_TYPE.NONE,
+                IsLifeTimeDeathEffect = false,
+                LifeTimeDuration = 0f
+            };
+
+            return poolOptions;
+        }
+
         #region Internal Helpers
 
         private PoolItem CreatePoolItem(Pool pool)
@@ -461,8 +487,8 @@ namespace Game.PoolSystem
             if (pool.Options.EnableHealthDetection)
             {
                 healthDetection = obj.GetComponent<PoolHealthDetection>();
-                
-                if (!healthDetection) 
+
+                if (!healthDetection)
                 {
                     healthDetection = obj.AddComponent<PoolHealthDetection>();
                     healthDetection.Init(pool.Options.HealthThresholds);

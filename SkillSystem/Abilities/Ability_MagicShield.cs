@@ -1,11 +1,17 @@
 using Game.StatSystem;
 using UnityEngine;
 namespace Game.SkillSystem
-{
+{   
+    /// <summary>
+    /// Base class for magic shield abilities.
+    /// The ManagerSkills handdles the triggering of this ability. Trigger will be randomly selected from all ISkillGroupItemTrigger
+    /// </summary>
     public abstract class Ability_MagicShield : Ability, IManualEnd, ISkillGroupItemTrigger
     {
         [SerializeField] private GameObject _shieldVisualPrefab;
 
+
+        // IF THIS is for mobs, it doesnt work, cant have single orbital visuals for each mob
         private static OrbitalVisuals _orbitalVisual;
 
         public int SkillGroupItemID => (int)SKILL_GROUP_TAG.MAGIC_SHIELD;
@@ -51,10 +57,6 @@ namespace Game.SkillSystem
             {
                 _orbitalVisual.ClearByPrefab(_shieldVisualPrefab);
             }
-
-            //Events.OnBlockHappened.RemoveListener(OnBlockHappened);
-            
-            Debug.Log("Magic Shield ended, removing block chance modifier.");
         }
 
         protected abstract void OnBlockHappened(IDamageDealer dealer, IDamageReceiver receiver);
@@ -67,9 +69,7 @@ namespace Game.SkillSystem
                 return;
             }
 
-            IDamageDealer dealer = blockContext.DamageDealer;
-            IDamageReceiver receiver = blockContext.DamageReceiver;
-            OnBlockHappened(dealer, receiver);
+            OnBlockHappened(blockContext.DamageDealer, blockContext.DamageReceiver);
         }
     }
 }

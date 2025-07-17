@@ -68,7 +68,7 @@ public class DamageDealer : MonoBehaviour, IDamageDealer
         return transform;
     }
 
-    private DAMAGE_SOURCE ConvertOwnerTypeToDamageSource(OWNER_TYPE ownerType)
+    public DAMAGE_SOURCE ConvertOwnerTypeToDamageSource(OWNER_TYPE ownerType)
     {
         switch (ownerType)
         {

@@ -1,0 +1,8 @@
+public enum INDICATOR_TYPE
+{
+    DAMAGE = 0,
+    DAMAGE_CRITICAL,
+    HEAL,
+    CURRENCY_ALL,
+    PLAYER_GOT_HIT,
+}

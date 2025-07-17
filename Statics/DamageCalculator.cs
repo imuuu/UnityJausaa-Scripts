@@ -31,7 +31,6 @@ public static class DamageCalculator
 
         IOwner receiverOwner = receiver.GetTransform().GetComponent<IOwner>().GetRootOwner();
 
-
         Player player = Player.Instance;
 
         float critChance = 0f;
@@ -60,7 +59,7 @@ public static class DamageCalculator
             critMultiplier += dealerStats.GetValueOfStat(STAT_TYPE.CRIT_MULTIPLIER, 0f);
         }
 
-        if(critMultiplier < 0f)
+        if (critMultiplier < 0f)
             critMultiplier = CONSTANTS.DEFAULT_CRIT_MULTIPLIER;
 
         bool isCritical = Random.Range(0f, 100f) <= critChance;
@@ -85,7 +84,28 @@ public static class DamageCalculator
                 && receiverOwner.GetOwnerType() == OWNER_TYPE.PLAYER
                 || receiverOwner.GetOwnerType() == OWNER_TYPE.ENEMY)
                 {
-                    ManagerFloatingDamages.Instance.CreateFloatingDamage(receiver.GetTransform(), dealer.GetDamage());
+                    //these could be moved inside IDamageReceiver, maybe in future
+                    if(receiverOwner.GetOwnerType() == OWNER_TYPE.PLAYER)
+                    {
+                        UI_ManagerWorldIndicators.Instance.CreateFloatingDamage(
+                            receiver.GetTransform(),
+                            INDICATOR_TYPE.PLAYER_GOT_HIT,
+                            dealer.GetDamage() * -1f); // NEGATIVE, just for SHOW
+                    }
+                    else if (!isCritical)
+                    {
+                        UI_ManagerWorldIndicators.Instance.CreateFloatingDamage(
+                            receiver.GetTransform(),
+                             INDICATOR_TYPE.DAMAGE,
+                              dealer.GetDamage());
+                    }
+                    else
+                    {
+                        UI_ManagerWorldIndicators.Instance.CreateFloatingDamage(
+                            receiver.GetTransform(),
+                            INDICATOR_TYPE.DAMAGE_CRITICAL,
+                             dealer.GetDamage());
+                    }
                 }
 
                 if (isCritical)
@@ -99,6 +119,6 @@ public static class DamageCalculator
 
         return false;
     }
-    
+
 
 }

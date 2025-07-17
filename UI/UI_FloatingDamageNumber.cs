@@ -1,5 +1,4 @@
 using UnityEngine;
-using DG.Tweening;
 using Nova;
 using UI.Animations;
 using Sirenix.OdinInspector;
@@ -10,7 +9,7 @@ public class UI_FloatingDamageNumber : MonoBehaviour
     
     [Title("Animation Settings")]
     [SerializeField] private float _duration = 1f;
-    [SerializeField] private VerticalMovementAnimation _verticalMovementAnimation;
+    [SerializeField] private VerticalTransformAnimation _verticalMovementAnimation;
     [SerializeField] private BodyColorAnimation _textBodyColorAnimation;
     private AnimationHandle _bodyColorAnimationHandle;
     private AnimationHandle _verticalAnimationHandle;

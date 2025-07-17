@@ -217,6 +217,21 @@ public class ManagerCurrency : MonoBehaviour
         AddCurrency(entry.currencyType, amount);
     }
 
+    private void ShowWorldIndicator(CURRENCY type, int amount)
+    {
+        if (Player.Instance == null) return;
+
+        if (SceneLoader.GetCurrentScene() == SCENE_NAME.Lobby) return;
+
+        CurrencyDefinition definition = _currencyLibrary.GetCurrencyDefinition(type);
+
+        if (!definition.EnableWorldIndicator) return;
+
+        Sprite sprite = definition.Icon;
+        Vector3 worldPosition = Player.Instance.transform.position;
+        UI_ManagerWorldIndicators.Instance.ShowIndicator(worldPosition, INDICATOR_TYPE.CURRENCY_ALL, amount, sprite);
+    }
+
     // ─── Balance Management ────────────────────────────────────────────────
 
     public void AddCurrency(CURRENCY type, int amount)
@@ -227,6 +242,8 @@ public class ManagerCurrency : MonoBehaviour
 
         Events.OnCurrencyAdded.Invoke(type, amount);
         Events.OnCurrencyBalanceChange.Invoke(type, _balances[type]);
+
+        ShowWorldIndicator(type, amount);
         SaveBalance(type);
     }
 
@@ -316,7 +333,7 @@ public class ManagerCurrency : MonoBehaviour
     {
         return _currencyLibrary.GetCurrencyDefinition(type);
     }
-    
+
     public LootTable<CurrencyDropEntry> GetMobDropTable(MOB_TYPE mobType)
     {
         if (_mobDropTables == null)

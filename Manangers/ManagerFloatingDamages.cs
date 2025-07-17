@@ -34,19 +34,21 @@ public class ManagerFloatingDamages : MonoBehaviour
 
     public void CreateFloatingDamage(Transform targetTransform, float damage)
     {
-        if(!_enable) return;
+        if (!_enable) return;
 
-        GameObject floatingDamage = ManagerPrefabPooler.Instance.GetFromPool(_floatingDamagePrefab);
+        // GameObject floatingDamage = ManagerPrefabPooler.Instance.GetFromPool(_floatingDamagePrefab);
 
-        if(targetTransform.TryGetComponent<IStatistics>(out IStatistics statistics))
-        {
-            floatingDamage.transform.position = statistics.HeadPosition +Vector3.up*_offsetY;
-        }else
-            floatingDamage.transform.position = targetTransform.position + Vector3.up * _offsetY;
+        // if(targetTransform.TryGetComponent<IStatistics>(out IStatistics statistics))
+        // {
+        //     floatingDamage.transform.position = statistics.HeadPosition +Vector3.up*_offsetY;
+        // }else
+        //     floatingDamage.transform.position = targetTransform.position + Vector3.up * _offsetY;
 
-        UI_FloatingDamageNumber floatingDamageNumber = floatingDamage.GetComponent<UI_FloatingDamageNumber>();
-        //Debug.Log($"FFFFFFFloating Damage Number: {damage}");
-        floatingDamageNumber.ShowDamage(damage);
+        // UI_FloatingDamageNumber floatingDamageNumber = floatingDamage.GetComponent<UI_FloatingDamageNumber>();
+        // //Debug.Log($"FFFFFFFloating Damage Number: {damage}");
+        // floatingDamageNumber.ShowDamage(damage);
+        
+        UI_ManagerWorldIndicators.Instance.CreateFloatingDamage(targetTransform, INDICATOR_TYPE.DAMAGE, damage);
 
     }
 }
