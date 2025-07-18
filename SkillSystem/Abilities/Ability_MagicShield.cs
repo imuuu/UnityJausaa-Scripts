@@ -1,4 +1,5 @@
 using Game.StatSystem;
+using Sirenix.OdinInspector;
 using UnityEngine;
 namespace Game.SkillSystem
 {   
@@ -7,9 +8,10 @@ namespace Game.SkillSystem
     /// The ManagerSkills handdles the triggering of this ability. Trigger will be randomly selected from all ISkillGroupItemTrigger
     /// </summary>
     public abstract class Ability_MagicShield : Ability, IManualEnd, ISkillGroupItemTrigger
-    {
+    {   
+        [InfoBox("This is a single instance. Meaning first one will be instantiate of all shield skills")]
+        [SerializeField] private GameObject _orbitalVisualPrefab;
         [SerializeField] private GameObject _shieldVisualPrefab;
-
 
         // IF THIS is for mobs, it doesnt work, cant have single orbital visuals for each mob
         private static OrbitalVisuals _orbitalVisual;
@@ -26,13 +28,13 @@ namespace Game.SkillSystem
             GameObject target = GetUserTransform().gameObject;
             if (_orbitalVisual == null)
             {
-                GameObject go = new GameObject("MagicShield_OrbitalVisuals");
-                _orbitalVisual = go.AddComponent<OrbitalVisuals>();
+                GameObject go = GameObject.Instantiate(_orbitalVisualPrefab);
+                _orbitalVisual = go.GetOrAdd<OrbitalVisuals>();
                 _orbitalVisual.Target = target.transform;
                 _orbitalVisual.transform.localPosition = Vector3.zero;
                 _orbitalVisual.SingleInstanceMode = true;
                 _orbitalVisual.RemoveExistingOnAdd = true;
-                _orbitalVisual.HeightPivot = 1f;
+                //_orbitalVisual.HeightPivot = 1f;
             }
 
             _orbitalVisual.AddVisualPrefab(_shieldVisualPrefab);

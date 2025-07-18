@@ -259,7 +259,7 @@ namespace Game.SkillSystem
             }
         }
 
-        protected void DoAreaDamage(IDamageDealer dealer, Vector3 position, Collider[] hitsOnceAlloc, LayerMask layer, float radius)
+        protected void DoAreaDamageWithoutHitDetection(IDamageDealer dealer, Vector3 position, Collider[] hitsOnceAlloc, LayerMask layer, float radius)
         {
             //MarkHelper.DrawSphereTimed(GetUserTransform().position, radius, 1, Color.white);
             int count = Physics.OverlapSphereNonAlloc(position, radius, hitsOnceAlloc, layer);
@@ -317,6 +317,15 @@ namespace Game.SkillSystem
         public bool IsRecastable()
         {
             return this is IRecastSkill && _ownerType == OWNER_TYPE.PLAYER;
+        }
+
+        public SimpleDamage CreateSimpleDamage(float damage = 0f)
+        {
+            SimpleDamage simpleDamage = new SimpleDamage(
+                damage,
+                DAMAGE_TYPE.PHYSICAL,
+                DamageSourceHelper.GetSourceFromOwner(_ownerType));
+            return simpleDamage;
         }
 
         #region Getters and Setters
@@ -504,6 +513,6 @@ namespace Game.SkillSystem
 
         #endregion Editor Methods   
     }
-    
-    
+
+
 }

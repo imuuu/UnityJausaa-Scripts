@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Sirenix.OdinInspector;
 
 /// <summary>
 /// Generic component to instantiate and orbit visual objects (e.g., shield prefabs) around a target Transform.
@@ -10,13 +11,13 @@ public class OrbitalVisuals : MonoBehaviour
 {
     public enum OrientationMode
     {
-        SelfRotate,   // Visuals spin on their own axis
-        FaceCenter,   // Visuals always face towards orbit center
-        FaceOutward   // Visuals always face away from orbit center
+        SELF_ROTATE,   // Visuals spin on their own axis
+        FACE_CENTER,   // Visuals always face towards orbit center
+        FACE_OUTWARD   // Visuals always face away from orbit center
     }
 
     [SerializeField, Tooltip("Prefabs to instantiate and spin around the target.")]
-    private List<GameObject> _visualPrefabs = new List<GameObject>();
+    private List<GameObject> _visualPrefabs = new ();
 
     [SerializeField, Tooltip("Target Transform around which visuals will orbit. Defaults to this GameObject.")]
     private Transform _target;
@@ -40,7 +41,7 @@ public class OrbitalVisuals : MonoBehaviour
     private bool _followParentRotation = true;
 
     [SerializeField, Tooltip("Orientation behavior of the visuals relative to the center.")]
-    private OrientationMode _orientationMode = OrientationMode.SelfRotate;
+    private OrientationMode _orientationMode = OrientationMode.SELF_ROTATE;
 
     [SerializeField, Tooltip("If true, prevents instantiation of duplicate prefabs by name.")]
     private bool _singleInstanceMode = false;
@@ -48,10 +49,9 @@ public class OrbitalVisuals : MonoBehaviour
     [SerializeField, Tooltip("If true and single-instance mode is on, removes existing instance before adding new one.")]
     private bool _removeExistingOnAdd = false;
 
-    private readonly List<Transform> _visuals = new List<Transform>();
-    private readonly List<float> _baseAngles = new List<float>();
+    [ReadOnly] private List<Transform> _visuals = new ();
+    [ReadOnly] private List<float> _baseAngles = new ();
 
-    #region Public API
     public List<GameObject> VisualPrefabs => _visualPrefabs;
     public Transform Target
     {
@@ -68,9 +68,6 @@ public class OrbitalVisuals : MonoBehaviour
     public bool SingleInstanceMode { get => _singleInstanceMode; set => _singleInstanceMode = value; }
     public bool RemoveExistingOnAdd { get => _removeExistingOnAdd; set => _removeExistingOnAdd = value; }
 
-    /// <summary>
-    /// Clears all instantiated visuals.
-    /// </summary>
     public void ClearAll()
     {
         for (int i = _visuals.Count - 1; i >= 0; i--)
@@ -81,15 +78,23 @@ public class OrbitalVisuals : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Clears a specific visual instance by index.
-    /// </summary>
     public void ClearAt(int index)
     {
         if (index < 0 || index >= _visuals.Count) return;
         Destroy(_visuals[index].gameObject);
         _visuals.RemoveAt(index);
         _baseAngles.RemoveAt(index);
+
+        CalculateBaseAngles();
+    }
+
+    private void CalculateBaseAngles()
+    {
+        for (int i = 0; i < _visuals.Count; i++)
+        {
+            float angle = i * Mathf.PI * 2f / _visuals.Count;
+            _baseAngles[i] = angle;
+        }
     }
 
     public void ClearByPrefab(GameObject prefab)
@@ -109,7 +114,6 @@ public class OrbitalVisuals : MonoBehaviour
     {
         string name = prefab.name;
         int existingIndex = _visuals.FindIndex(v => v.name.Contains(name));
-        Debug.Log($"Adding visual prefab: {name}, existing index: {existingIndex}");
         if (_singleInstanceMode && existingIndex != -1)
         {
             if (_removeExistingOnAdd)
@@ -122,15 +126,13 @@ public class OrbitalVisuals : MonoBehaviour
                 return;
             }
         }
-        Debug.Assert(prefab != null, "Prefab cannot be null");
         int index = _visuals.Count;
-        GameObject instance = Instantiate(prefab, Vector3.zero, Quaternion.identity,
+        GameObject go = Instantiate(prefab, Vector3.zero, Quaternion.identity,
             _followParentRotation ? transform : null);
-        instance.name = name; // ensure consistent naming
-        _visuals.Add(instance.transform);
-        _baseAngles.Add(index * Mathf.PI * 2f / (_visuals.Count));
+        go.name = name;
+        _visuals.Add(go.transform);
+        _baseAngles.Add(index * Mathf.PI * 2f / _visuals.Count);
     }
-    #endregion
 
     private void Awake()
     {
@@ -150,7 +152,6 @@ public class OrbitalVisuals : MonoBehaviour
             GameObject prefab = _visualPrefabs[i];
             AddVisualPrefab(prefab);
         }
-        // Recalculate base angles evenly
         for (int i = 0; i < _baseAngles.Count; i++)
         {
             _baseAngles[i] = i * Mathf.PI * 2f / _baseAngles.Count;
@@ -176,16 +177,15 @@ public class OrbitalVisuals : MonoBehaviour
             Vector3 worldPos = center + new Vector3(x, y, z);
             vis.position = worldPos;
 
-            // Orientation modes
             switch (_orientationMode)
             {
-                case OrientationMode.SelfRotate:
+                case OrientationMode.SELF_ROTATE:
                     vis.Rotate(Vector3.up, _spinSpeed * Mathf.Rad2Deg * Time.deltaTime, Space.Self);
                     break;
-                case OrientationMode.FaceCenter:
+                case OrientationMode.FACE_CENTER:
                     vis.LookAt(center);
                     break;
-                case OrientationMode.FaceOutward:
+                case OrientationMode.FACE_OUTWARD:
                     vis.LookAt(worldPos + (worldPos - center));
                     break;
             }

@@ -353,7 +353,7 @@ namespace Game.SkillSystem
             float areaDamage = damage * _areaEffectDamagePercent * multiplier;
             _damageDealer.SetDamage(areaDamage);
 
-            DoAreaDamage(_damageDealer, position, _hitColliders, _enemyLayerMask, _radiusAreaEffect);
+            DoAreaDamageWithoutHitDetection(_damageDealer, position, _hitColliders, _enemyLayerMask, _radiusAreaEffect);
         }
         
         private void OnLastBounceHit(Vector3 position)

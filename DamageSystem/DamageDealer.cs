@@ -70,17 +70,18 @@ public class DamageDealer : MonoBehaviour, IDamageDealer
 
     public DAMAGE_SOURCE ConvertOwnerTypeToDamageSource(OWNER_TYPE ownerType)
     {
-        switch (ownerType)
-        {
-            case OWNER_TYPE.PLAYER:
-                return DAMAGE_SOURCE.PLAYER;
-            case OWNER_TYPE.ENEMY:
-                return DAMAGE_SOURCE.ENEMY;
-            case OWNER_TYPE.PHYSIC_HAND:
-                return DAMAGE_SOURCE.PHYSIC_HAND;
-            default:
-                return DAMAGE_SOURCE.ENVIRONMENT;
-        }
+        return DamageSourceHelper.GetSourceFromOwner(ownerType);
+        // switch (ownerType)
+        // {
+        //     case OWNER_TYPE.PLAYER:
+        //         return DAMAGE_SOURCE.PLAYER;
+        //     case OWNER_TYPE.ENEMY:
+        //         return DAMAGE_SOURCE.ENEMY;
+        //     case OWNER_TYPE.PHYSIC_HAND:
+        //         return DAMAGE_SOURCE.PHYSIC_HAND;
+        //     default:
+        //         return DAMAGE_SOURCE.ENVIRONMENT;
+        // }
     }
 
     public void SetDamage(float damage)

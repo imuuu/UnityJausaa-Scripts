@@ -10,8 +10,6 @@ namespace Game.SkillSystem
 
         protected override void OnBlockHappened(IDamageDealer dealer, IDamageReceiver receiver)
         {
-            Debug.Log($"ShieldOfLife: Blocked damage from {dealer.GetTransform().name} to {receiver.GetTransform().name}");
-
             float heal = _baseStats.GetValueOfStat(StatSystem.STAT_TYPE.HEAL);
 
             if (heal <= 0f)

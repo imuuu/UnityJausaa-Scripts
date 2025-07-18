@@ -52,7 +52,7 @@ namespace Game.SkillSystem
             
 
             //DoAreaDamage(randomPosition, _areaEffect);
-            DoAreaDamage(_damageDealer, randomPosition, _hitsOnce, _enemyLayerMask, _areaEffect);
+            DoAreaDamageWithoutHitDetection(_damageDealer, randomPosition, _hitsOnce, _enemyLayerMask, _areaEffect);
         }
         public override void EndSkill() 
         {
