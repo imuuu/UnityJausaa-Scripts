@@ -41,7 +41,6 @@ namespace Game.SkillSystem
         private BlockEventContext _blockEventContext;
         // ========================
 
-
         private void Awake()
         {
             if (Instance == null) Instance = this;

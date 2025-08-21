@@ -1,16 +1,29 @@
 using Game;
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 [DefaultExecutionOrder(1)]
-public abstract class MobMovement : MonoBehaviour, IMovement, IEnabled
+public abstract class MobMovement : MonoBehaviour, IMovement, IEnabled,ITarget
 {
     protected bool _isEnabled = true;
     protected ManagerMobMovement ManagerMobMovement => ManagerMobMovement.Instance;
     private bool _movementEnabled = true;
     [SerializeField] protected float _rotationSpeed = 5f; // Default rotation speed
     [SerializeField] protected float _speed = 5f; // Default speed
-    protected virtual void Start() 
+    [Title("Target")]
+    [SerializeField] protected bool _findPlayer = true;
+    [SerializeField, HideIf("_findPlayer")] protected Transform _target;
+    protected virtual void Start()
     {
+        if (!_findPlayer) return;
+
+        Player.AssignTransformWhenAvailable( (player) => SetTarget(player.transform));
+
+        // ActionScheduler.RunWhenTrue(IsPlayerPresent, () =>
+        // {
+        //     SetTarget(ManagerGame.Instance.GetPlayer().transform);
+        // });
+
         Register();
     }
 
@@ -79,4 +92,15 @@ public abstract class MobMovement : MonoBehaviour, IMovement, IEnabled
     {
         _rotationSpeed = rotationSpeed;
     }
+
+    public Transform GetTarget()
+    {
+        return _target;
+    }
+
+    public virtual void SetTarget(Transform newTarget)
+    {
+        _target = newTarget;
+    }
+
 }

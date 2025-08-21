@@ -20,12 +20,12 @@ namespace Game.SkillSystem
             base.AwakeSkill();
 
             //Debug.Log("Awakening Skill_SingleAbility");
-            if(_ability is IDuration duration)
+            if (_ability is IDuration duration)
             {
                 SetDuration(duration.GetDuration());
             }
 
-            if(_ability is ICooldown cooldown)
+            if (_ability is ICooldown cooldown)
             {
                 SetCooldown(cooldown.GetCooldown());
             }
@@ -41,14 +41,14 @@ namespace Game.SkillSystem
             _createdAbility.SetInstanceID(GetInstanceID());
             _createdAbility.AwakeSkill();
 
-            if(_createdAbility is IDuration durationAbility && GetDuration() != durationAbility.GetDuration())
+            if (_createdAbility is IDuration durationAbility && GetDuration() != durationAbility.GetDuration())
             {
                 Debug.Log("========> Setting duration to: " + GetDuration() + " from: " + durationAbility.GetDuration());
                 SetDuration(durationAbility.GetDuration());
             }
-           
 
-            if(_holdModifiers == null)
+
+            if (_holdModifiers == null)
                 return;
 
             foreach (Modifier modifier in _holdModifiers)
@@ -57,12 +57,12 @@ namespace Game.SkillSystem
             }
 
             _holdModifiers = null;
-            
+
         }
         public override void StartSkill()
         {
             IAbility spawnedAbility = null;
-            if(_createdAbility is IStaticSkill)
+            if (_createdAbility is IStaticSkill)
             {
                 Debug.Log("CREATING STATIC ABILITY");
                 spawnedAbility = _createdAbility;
@@ -72,7 +72,7 @@ namespace Game.SkillSystem
                 //Debug.Log("CREATING NEW ABILITY");
                 spawnedAbility = (IAbility)SerializationUtility.CreateCopy(_createdAbility);
             }
-                
+
             // else
             // {
             //     CreateNewAbility();
@@ -119,21 +119,21 @@ namespace Game.SkillSystem
         }
         public override void EndSkill()
         {
-            
+
         }
 
         public override void UpdateSkill()
         {
-            
+
         }
 
         public override void AddModifier(Modifier modifier)
         {
-            if(!_isAwaken)
+            if (!_isAwaken)
             {
-                if(_holdModifiers == null)
+                if (_holdModifiers == null)
                     _holdModifiers = new List<Modifier>();
-                
+
                 _holdModifiers.Add(modifier);
                 return;
             }
@@ -148,6 +148,11 @@ namespace Game.SkillSystem
                 return;
 
             _createdAbility.ClearModifiers();
+        }
+        
+        public IAbility GetAbility()
+        {
+            return _ability;
         }
 
         // public bool IsAbilityPassive()

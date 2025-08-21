@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.UI;
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 public class ManagerPause : MonoBehaviour
@@ -7,6 +8,16 @@ public class ManagerPause : MonoBehaviour
     public static ManagerPause Instance { get; private set; }
     private static HashSet<PAUSE_REASON> _globalPauses = new ();
     private static HashSet<PAUSE_REASON> _otherPauses = new ();
+
+#if UNITY_EDITOR
+    [ShowInInspector, ReadOnly, BoxGroup("Pause Debug")]
+    [PropertyOrder(-10)]
+    private List<PAUSE_REASON> GlobalPauses => new(_globalPauses);
+
+    [ShowInInspector, ReadOnly, BoxGroup("Pause Debug")]
+    [PropertyOrder(-9)]
+    private List<PAUSE_REASON> OtherPauses => new(_otherPauses);
+#endif
 
     private void Awake()
     {

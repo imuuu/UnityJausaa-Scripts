@@ -1,0 +1,5 @@
+public enum START_POSITION
+{
+    FRONT_PLAYER,
+    AROUND_PLAYER,
+}

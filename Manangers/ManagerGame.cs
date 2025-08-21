@@ -20,12 +20,14 @@ public class ManagerGame : MonoBehaviour
     private RoundTimer _roundTimer;
 
 
-    private void Awake() 
+    private void Awake()
     {
-        if (Instance == null) 
+        if (Instance == null)
         {
             Instance = this;
-        } else {
+        }
+        else
+        {
             Debug.LogWarning("There should only be one ManagerGame in the scene.");
             Destroy(this);
         }
@@ -73,9 +75,25 @@ public class ManagerGame : MonoBehaviour
     public float GetCurrentRoundTimeSeconds() => _roundTimer.CurrentTime;
     public float GetCurrentRoundTimeMinutes()
     {
-        if(_roundTimer.CurrentTime <= 0) return 0;
+        if (_roundTimer.CurrentTime <= 0) return 0;
 
         return _roundTimer.CurrentTime / 60f;
+    }
+
+    public void SafeDestroyMob(GameObject gameObject)
+    {
+        if (gameObject.GetComponent<DeathController>() != null) return; 
+
+        gameObject.SetActive(false);
+
+        ActionScheduler.RunAfterDelay(1f, () =>
+        {
+            if (gameObject != null)
+            {
+                Destroy(gameObject);
+            }
+        });
+ 
     }
 
 

@@ -67,7 +67,7 @@ namespace Game.SkillSystem
             _skill.ClearModifiers();
         }
 
-        public void UseSkill(int slot = -1)
+        public void UseSkill(int slot = -1, SkillExecuteHandler executeHandler = null)
         {
             if (Player.Instance == null)
             {
@@ -82,7 +82,14 @@ namespace Game.SkillSystem
             }
             _skill.SetSkillName(SkillName);
             _skill.SetInstanceID(GetInstanceID());
-            ManagerSkills.Instance.ExecuteSkillDefinition(this, slot);
+
+            if (executeHandler == null)
+            {
+                ManagerSkills.Instance.ExecuteSkillDefinition(this, slot);
+                return;
+            }
+
+            executeHandler.ExecuteSkillDefinition(this, slot);
         }
 
         public void AddModifier(Modifier modifier)

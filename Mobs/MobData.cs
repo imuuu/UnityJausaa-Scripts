@@ -20,8 +20,6 @@ namespace Game.Mobs
         public GameObject Prefab;
 
         [BoxGroup("Basic Stats")]
-        [PropertyRange(0, 1000)]
-        [ProgressBar(0, 1000, Height = 20, ColorGetter = nameof(GetHPBarColor))]
         public int HP = 100;
         [BoxGroup("Basic Stats")]
         public float HpMultiplierEachMinute = 1.1f;

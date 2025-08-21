@@ -32,6 +32,7 @@ namespace Game.SkillSystem
 
         public override void EndSkill()
         {
+            base.EndSkill();
         }
 
         public override void UpdateSkill()

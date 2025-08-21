@@ -3,7 +3,7 @@ using Pathfinding;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
-public class ChaseMovement : MobMovement, ITarget
+public class ChaseMovement : MobMovement
 {
     [Title("References")]
     [SerializeField] private Rigidbody _rigidbody;
@@ -13,9 +13,7 @@ public class ChaseMovement : MobMovement, ITarget
     [Tooltip("Lock the Y to 0")]
     [SerializeField] private bool _lockY = true;
 
-    [Title("Target")]
-    [SerializeField] private bool _findPlayer = true;
-    [SerializeField, HideIf("_findPlayer")] private Transform _target;
+   
 
     [Title("Patrol / Wandering")]
     [SerializeField] private bool _enablePatrol = false;
@@ -154,19 +152,9 @@ public class ChaseMovement : MobMovement, ITarget
         _wanderPoint = _patrolTarget.position + new Vector3(rand2D.x, 0f, rand2D.y);
     }
 
-    public void SetTarget(Transform newTarget)
-    {
-        _target = newTarget;
-    }
-
     private bool IsPlayerPresent()
     {
         return Player.Instance != null;
-    }
-
-    public Transform GetTarget()
-    {
-        return _target;
     }
 
     public void SetPatrol(Transform patrolTarget, float patrolRadius = 5f)

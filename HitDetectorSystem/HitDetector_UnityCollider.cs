@@ -104,8 +104,9 @@ namespace Game.HitDetectorSystem
             return false;
         }
 
-        private void OnTriggerEnter(Collider other)
+        public void OnTriggerEnter(Collider other)
         {
+            //Debug.Log($"HitDetector_UnityCollider: {other.gameObject.name} entered trigger");
             if (!other.gameObject.TryGetComponent<IOwner>(out var owner)) return;
             if (owner.GetRootOwner().GetOwnerType() == GetOwner().GetRootOwner().GetOwnerType()) return;
 
@@ -123,7 +124,7 @@ namespace Game.HitDetectorSystem
             }
         }
 
-        private void OnTriggerExit(Collider other)
+        public void OnTriggerExit(Collider other)
         {
             var go = other.gameObject;
             _insideObjects.Remove(go);

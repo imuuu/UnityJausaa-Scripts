@@ -114,8 +114,10 @@ public class ManagerXp : MonoBehaviour, IEnabled
             _currentLevel++;
             OnLevelUp();
             Events.OnPlayerLevelChange.Invoke(_currentLevel);
-            Events.OnPlayerXpChange.Invoke(0);
+            //Events.OnPlayerXpChange.Invoke(0);
         }
+
+        Events.OnPlayerXpChange.Invoke(GetXpPercent());
     }
 
     // XP threshold function: XP required for current level is baseXp * level^(exponent)

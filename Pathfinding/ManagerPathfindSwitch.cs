@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Utility;
 using Sirenix.OdinInspector;
@@ -52,6 +53,21 @@ public class ManagerPathfindSwitch : MonoBehaviour
 
         if (Player.Instance != null)
             _playerTransform = Player.Instance.transform;
+
+        Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
+    }
+
+    private bool OnPlayableSceneChange(SCENE_NAME param)
+    {
+        Player.AssignTransformWhenAvailable((p) => _playerTransform = p);
+        ActionScheduler.RunAfterDelay(1, () =>
+        {
+            AstarPath.active?.Scan();
+        });
+
+        _distanceHandle.Complete();
+        
+        return true;
     }
 
     private void Start()
@@ -113,6 +129,7 @@ public class ManagerPathfindSwitch : MonoBehaviour
             if (_switchControllers[i] == null) continue;
 
             IPathfindSwitch switchController = _switchControllers[i];
+
             bool finalState = false;
 
             if (withinDistance)
@@ -148,13 +165,20 @@ public class ManagerPathfindSwitch : MonoBehaviour
 
         for (int i = 0; i < _jobCount; i++)
         {
-            //TODO if transform gone error
-            if(_switchControllers[i] == null || _switchControllers[i].GetTransform() == null)
+            IPathfindSwitch switchController = _switchControllers[i];
+            if (switchController == null) { _distanceResults[i] = false; continue; }
+
+            Transform transform = switchController.GetTransform();
+            if (transform == null)
             {
                 _distanceResults[i] = false;
+                _toRemove.Add(switchController);
                 continue;
             }
-            _switchPositions[i] = _switchControllers[i].GetTransform().position;
+
+            // If you're extra paranoid, wrap this in try/catch once (exceptions should be rare):
+            // try { _switchPositions[i] = tr.position; } catch (MissingReferenceException) { _distanceResults[i] = false; continue; }
+            _switchPositions[i] = transform.position;
         }
 
         float3 playerPos = _playerTransform.position;
@@ -224,6 +248,7 @@ public class ManagerPathfindSwitch : MonoBehaviour
     {
         // if(!_enableRaycasts)
         //     return true;
+        if(switchController.GetTransform() == null) return false;
 
         Vector3 switchPos = switchController.GetTransform().position;
 

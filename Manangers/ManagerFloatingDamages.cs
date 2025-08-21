@@ -1,6 +1,7 @@
+using System;
 using Game.PoolSystem;
 using UnityEngine;
-
+[Obsolete]
 public class ManagerFloatingDamages : MonoBehaviour
 {
     public static ManagerFloatingDamages Instance { get; private set; }
@@ -8,7 +9,7 @@ public class ManagerFloatingDamages : MonoBehaviour
     [SerializeField] private bool _enable = true;
 
     [SerializeField] private GameObject _floatingDamagePrefab;
-    [SerializeField] private float _offsetY = 1f;
+    //[SerializeField] private float _offsetY = 1f;
 
     private void Awake()
     {

@@ -14,6 +14,7 @@ namespace Game.Pathfind
         [SerializeField] private EntityStatistics _entityStatistics;
 
         private bool _pathfindON = false;
+        private Transform _transform;
 
         // [Title("Settings")]
         // [SerializeField, Range(15, 100)] private float _switchPlayerDistance = 35f;
@@ -28,6 +29,7 @@ namespace Game.Pathfind
 
         private void Awake()
         {
+            _transform = this.transform;
             _pathfindON = true;
             SwitchPathFindingOn(false);
         }
@@ -130,6 +132,10 @@ namespace Game.Pathfind
 
         public Transform GetTransform()
         {
+            if(this == null) return null;
+
+            if (_transform == null) return null;
+
             return transform;
         }
 

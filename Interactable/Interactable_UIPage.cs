@@ -12,6 +12,7 @@ namespace Game.Interactable
 
         public override bool Interact()
         {
+            base.Interact();
             ManagerUI.Instance.TogglePage(pageType);
             return true;
         }

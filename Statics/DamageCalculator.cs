@@ -80,7 +80,7 @@ public static class DamageCalculator
 
                 receiver.GetHealth().TakeDamage(dealer);
 
-                if (ManagerFloatingDamages.Instance != null
+                if (UI_ManagerWorldIndicators.Instance != null
                 && receiverOwner.GetOwnerType() == OWNER_TYPE.PLAYER
                 || receiverOwner.GetOwnerType() == OWNER_TYPE.ENEMY)
                 {

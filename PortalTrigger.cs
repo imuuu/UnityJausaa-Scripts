@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Cinemachine;
 
+// TODO make this better to fit more use cases for other maps
 public class PortalTrigger : MonoBehaviour
 {
     // private bool _playerInside = false;
@@ -8,47 +9,6 @@ public class PortalTrigger : MonoBehaviour
 
     [Header("Jump Camera")]
     [SerializeField] private CinemachineCamera _jumpCam;
-
-    // private void OnTriggerEnter(Collider other)
-    // {
-    //     if (other.CompareTag("Player"))
-    //     {
-    //         _playerInside = true;
-    //         _playerMovement = other.GetComponentInParent<PlayerMovement>();
-
-
-    //         // SceneLoader.PreloadSceneAsync("ToxicLevel", (scene) =>
-    //         // {
-    //         //     Debug.Log($"<color=#1db8fb>[PortalTrigger]</color> Scene {scene} preloaded.");
-    //         //     SceneLoader.ActivatePreloadedScene(scene);
-    //         // });
-    //     }
-    // }
-
-    // private void OnTriggerExit(Collider other)
-    // {
-    //     if (other.CompareTag("Player"))
-    //     {
-    //         _playerInside = false;
-    //     }
-    // }
-
-    // private void Update()
-    // {
-    //     if (_playerInside && _playerMovement != null && Input.GetKeyDown(KeyCode.E))
-    //     {
-    //         //_playerMovement.FaceTowardsTarget(this.transform.position);
-    //         _playerMovement.transform.LookAt(this.transform.position);
-    //         _playerMovement._isPerformingAction = true;
-
-    //         if (_jumpCam != null)
-    //         {
-    //             _jumpCam.Priority = 20;
-    //         }
-
-    //         LoadToScene();
-    //     }
-    // }
 
     public void Trigger()
     {
@@ -62,6 +22,9 @@ public class PortalTrigger : MonoBehaviour
 
         player.transform.LookAt(this.transform.position);
         player.GetComponent<PlayerMovement>()._isPerformingAction = true;
+        PlayerAnimationController animationController = player.GetComponentInChildren<PlayerAnimationController>();
+
+        animationController.StartJump();
         if (_jumpCam != null)
         {
             _jumpCam.Priority = 20;
@@ -91,5 +54,10 @@ public class PortalTrigger : MonoBehaviour
     {
         SceneLoader.ActivatePreloadedScene(scene);
         SceneLoader.UnloadSceneAsync(SCENE_NAME.Lobby.ToString());
+
+        Player player = Player.Instance;
+
+        PlayerAnimationController animationController = player.GetComponentInChildren<PlayerAnimationController>();
+        animationController.StartLanding();
     }
 }

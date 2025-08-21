@@ -18,5 +18,8 @@ namespace Game.SkillSystem
         SHIELD_OF_LIFE = 13,
         SHIELD_OF_VITAL_ECHO = 14,
         SHIELD_OF_FORCE = 15,
+        JOLT_FANG = 16,
+        LIGHTNING_BEAM = 17,
+        POISON_SPIT = 18,
     }
 }

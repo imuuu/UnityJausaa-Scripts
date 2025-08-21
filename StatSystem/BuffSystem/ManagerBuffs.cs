@@ -32,6 +32,7 @@ namespace Game.BuffSystem
         [ShowInInspector] private float[] _probabilities;
 
         private bool _isSelectingBuffs = false;
+        private bool _middleOfChoosing = false;
         [SerializeField, ReadOnly] private int _choosesLeft = 0;
 
         public int _chanceToGetSkill = 30;
@@ -51,6 +52,8 @@ namespace Game.BuffSystem
         //public const int CHANCE_TO_GET_THIRD_BUFF = 2;
         public const int ROLL_AMOUNT = 5; // atm 3, but 2 extra
 
+        private List<BuffCard> _buffCards = new();
+
         private void Awake()
         {
             if (Instance == null) Instance = this;
@@ -62,12 +65,38 @@ namespace Game.BuffSystem
         private void Start()
         {
             Events.OnPlayerLevelChange.AddListener(OnPlayerLevelChange);
-            Events.OnPlayableSceneChangeEnter.AddListener(OnPlayableSceneChange);
+            Events.OnPlayableScenePreloadStart.AddListener(OnPlayableSceneChange);
+            Events.OnGamePause.AddListener(OnGamePause);
+            Events.OnGameUnPause.AddListener(OnGameUnpause);
+        }
+
+        private bool OnGameUnpause(PAUSE_REASON reason)
+        {
+            if (reason == PAUSE_REASON.BUFF_CARDS) return true;
+
+            if (_middleOfChoosing)
+            {
+                OnChooseBuffs();
+            }
+
+            return true;
+        }
+
+        private bool OnGamePause(PAUSE_REASON reason)
+        {
+            if (reason == PAUSE_REASON.BUFF_CARDS) return true;
+
+            if(_isSelectingBuffs) CloseChooseBuffs();
+            return true;
         }
 
         private bool OnPlayableSceneChange(SCENE_NAME sceneName)
         {
             _chanceToGetSkill = DEFAULT_CHANCE_TO_GET_SKILL;
+            _middleOfChoosing = false;
+            _choosesLeft = 0;
+            _buffCards.Clear();
+            CloseChooseBuffs();
             return true;
         }
 
@@ -122,6 +151,11 @@ namespace Game.BuffSystem
             return _isSelectingBuffs;
         }
 
+        public bool IsMiddleOfChoosing()
+        {
+            return _middleOfChoosing;
+        }
+
         public void SetSelectingBuffs(bool isSelectingBuffs)
         {
             _isSelectingBuffs = isSelectingBuffs;
@@ -129,9 +163,16 @@ namespace Game.BuffSystem
 
         private bool OnPlayerLevelChange(int playerLevel)
         {
+            Debug.Log($"<color=#1db8fb>[ManagerBuffs]</color> Player level changed: {playerLevel}");
             if (_isSelectingBuffs)
             {
                 _choosesLeft++;
+                return true;
+            }
+
+            if (ManagerPause.IsPaused())
+            {
+                _middleOfChoosing = true;
                 return true;
             }
 
@@ -144,6 +185,14 @@ namespace Game.BuffSystem
             _isSelectingBuffs = true;
             ManagerUI.Instance.OpenPage(PAGE_TYPE.CHOOSE_BUFFS);
             Events.OnBuffCardsOpen.Invoke();
+            _middleOfChoosing = true;
+        }
+
+        private void CloseChooseBuffs()
+        {
+            ManagerUI.Instance.ClosePage(PAGE_TYPE.CHOOSE_BUFFS);
+            ManagerPause.RemovePause(PAUSE_REASON.BUFF_CARDS);
+            _isSelectingBuffs = false;
         }
 
         public void OnChooseCardsOpen()
@@ -175,76 +224,22 @@ namespace Game.BuffSystem
             buffCard.Roll();
             return buffCard;
         }
-        // public BuffDefinition GetRandomBuffOrSkill()
-        // {
-        //     if (Random.Range(0, 100) < _chanceToGetSkill)
-        //     {
-        //         SkillDefinition skillDefinition = ManagerSkills.Instance.GetRandomNotActivePlayerSkill();
-        //         if (skillDefinition == null)
-        //         {
-        //             return GetRandomBufff();
-        //         }
 
-        //         BuffDefinition buffDefinition = GetSkillBuffDefinition(skillDefinition.SkillName);
+        public List<BuffCard> GetBuffCards(int count)
+        {
+            if (_buffCards.Count > 0)
+                return _buffCards;
 
-        //         if (buffDefinition != null)
-        //         {
-        //             Debug.Log("Getting new skill buff: " + buffDefinition.name);
-        //             buffDefinition.IsNewSkill = true;
-        //         }
-        //         else
-        //         {
-        //             Debug.LogWarning("No buff definition found for skill: " + skillDefinition.SkillName);
-        //         }
-        //         return buffDefinition != null ? buffDefinition : GetRandomBufff();
-        //     }
-        //     else
-        //     {
-        //         return GetRandomBufff();
-        //     }
-
-
-        //     BuffDefinition GetRandomBufff()
-        //     {
-        //         BuffDefinition buffDefinition = GetRandomBuffDefInActiveSkills();
-        //         buffDefinition.IsNewSkill = false;
-        //         return buffDefinition;
-        //     }
-        // }
-
-        // public BuffDefinition GetRandomBuffDefInActiveSkills()
-        // {
-        //     if (_buffDefinitions.Count == 0) return null;
-        //     int randomIndex = 0;
-
-        //     bool found = false;
-        //     int maxAttempts = 1000;
-        //     while (true)
-        //     {
-        //         SkillDefinition skillDefinition = ManagerSkills.Instance.GetRandomPlayerSkill();
-
-        //         for (int i = 0; i < _buffDefinitions.Count; i++)
-        //         {
-        //             if (_buffDefinitions[i].TargetSkill == skillDefinition.SkillName)
-        //             {
-        //                 found = true;
-        //                 randomIndex = i;
-        //                 break;
-        //             }
-        //         }
-
-        //         maxAttempts--;
-        //         if (maxAttempts <= 0)
-        //         {
-        //             Debug.LogError("Max attempts reached while trying to find a valid buff definition.");
-        //             break;
-        //         }
-
-        //         if (found) break;
-        //     }
-        //     return _buffDefinitions[randomIndex];
-        // }
-
+            ClearRolledModifiers();
+            _buffCards.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                BuffCard buffCard = GetRandomBuffCard();
+                _buffCards.Add(buffCard);
+            }
+            return _buffCards;
+        }
+      
         public List<BuffDefinition> GetBuffDefinitions()
         {
             return _buffDefinitions;
@@ -296,7 +291,14 @@ namespace Game.BuffSystem
 
         public void SetRollModifierForBuff(int index, List<Modifier> modifiers)
         {
-            _rolledModifiers.Add(index, modifiers);
+            if(_rolledModifiers.ContainsKey(index))
+            {
+                _rolledModifiers[index] = modifiers;
+            }
+            else
+            {
+                _rolledModifiers.Add(index, modifiers);
+            }
         }
 
         public void SetRollProbability(int index, float probability)
@@ -304,60 +306,9 @@ namespace Game.BuffSystem
             _probabilities[index] = probability;
         }
 
-        // public void OnSelectBuff(int index, BuffDefinition buffDefinition)
-        // {
-        //     SkillDefinition skillDefinition;
-        //     if (buffDefinition.IsNewSkill)
-        //     {
-        //         skillDefinition = ManagerSkills.Instance.GetSkill(buffDefinition.TargetSkill);
-        //         int slot = ManagerSkills.Instance.GetNextValidSlot();
-        //         ManagerSkills.Instance.AddPlayerSkill(slot, skillDefinition);
-        //         Debug.Log($"New skill added: {skillDefinition.name}");
-        //         buffDefinition.IsNewSkill = false;
-
-        //         ReduceChanceToGetSkill();
-        //     }
-        //     else
-        //     {
-        //         skillDefinition = ManagerSkills.Instance.GetActivePlayerSkillDef(buffDefinition.TargetSkill);
-
-        //         if (skillDefinition != null)
-        //         {
-        //             int id = 0;
-        //             foreach (var buffModifier in _rolledModifiers[index])
-        //             {
-        //                 // Debug.Log(" ");
-        //                 // Debug.Log(" ");
-        //                 // Debug.Log($"============{id}============");
-        //                 // Debug.Log($"===> Adding Buff: {buffModifier.GetTYPE()} to Skill: {skillDefinition.name}");
-        //                 // Debug.Log($"===> {buffModifier.ToString()}");
-        //                 // Debug.Log("===========================");
-        //                 // Debug.Log(" ");
-        //                 // Debug.Log(" ");
-        //                 skillDefinition.AddModifier(buffModifier);
-        //                 id++;
-        //             }
-
-        //             ManagerSkills.Instance.RemoveExecutedSkill(skillDefinition.GetSkill());
-        //             ICooldown cooldown = skillDefinition.GetSkill() as ICooldown;
-        //             if (cooldown != null)
-        //             {
-        //                 cooldown.SetCurrentCooldown(0);
-        //             }
-        //             skillDefinition.UseSkill();
-        //         }
-        //         else
-        //         {
-        //             Debug.LogError($"Skill not found for buff: {buffDefinition.name}");
-        //         }
-        //     }
-
-        //     CheckChoosesLeft();
-        // }
-
         public void CheckChoosesLeft()
         {
-            if (--_choosesLeft <= 0)
+            if (_choosesLeft-- <= 0)
             {
                 _isSelectingBuffs = false;
                 ManagerUI.Instance.ClosePage(PAGE_TYPE.CHOOSE_BUFFS);
@@ -397,6 +348,7 @@ namespace Game.BuffSystem
                 Debug.LogWarning("Getting Buffs; This method should only be called in play mode.");
                 return;
             }
+            
             OnPlayerLevelChange(-1);
         }
 
@@ -489,10 +441,12 @@ namespace Game.BuffSystem
         }
 
         /// <summary>
-        /// On event call before selecting a buff.
+        /// On event call after buff is pressed and other actions are taken.
         /// </summary>
         public void OnPreSelectBuff(int index)
         {
+            _buffCards.Clear();
+            _middleOfChoosing = false;
             ReduceChanceToGetPlayerBuff(REDUCE_PLAYER_BUFF_CHANCE_PER_ANY_BUFF);
             ReduceChanceToGetSkill(REDUCE_SKILL_CHANCE_PER_ANY_BUFF);
         }

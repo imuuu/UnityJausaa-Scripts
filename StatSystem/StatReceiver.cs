@@ -5,12 +5,13 @@ namespace Game.StatSystem
 {
     public class StatReceiver : MonoBehaviour, IStatReceiver
     {   
-
         [BoxGroup("Receiver Target")]
         [SerializeField] private STAT_TYPE _target;
 
         [BoxGroup("Scale")]
         [SerializeField, ToggleLeft] private bool _applyStatToScale = false;
+        [BoxGroup("Scale")]
+        [SerializeField, ShowIf("_applyStatToScale")] private bool _applyAsMultiplier = false;
         [BoxGroup("Scale")]
         [SerializeField, ShowIf("_applyStatToScale")] private bool _applyScaleToX = false;
         [BoxGroup("Scale")]
@@ -20,6 +21,13 @@ namespace Game.StatSystem
         private Stat _stat;
 
         private StatList _statList;
+        private Vector3 _startScale;
+
+        private void Awake()
+        {
+            _stat = new Stat(0, _target);
+            _startScale = transform.localScale;
+        }
 
         public void SetStat(Stat stat)
         {
@@ -31,10 +39,17 @@ namespace Game.StatSystem
         {
             if (_applyStatToScale)
             {
-                //float value = stat.GetValue() * 2f; idk why 2
                 float value = stat.GetValue();
-
+                //Debug.Log($"StatReceiver: {_target} changed to {value}");
                 Vector3 scale = transform.localScale;
+                if (_applyAsMultiplier)
+                {
+                    transform.localScale = _startScale * value;
+                    return;
+                }
+                //float value = stat.GetValue() * 2f; idk why 2
+
+                
                 if (_applyScaleToX) scale.x = value;
                 if (_applyScaleToY) scale.y = value;
                 if (_applyScaleToZ) scale.z = value;
@@ -52,11 +67,12 @@ namespace Game.StatSystem
 
         public StatList GetStats()
         {
-            if (_stat == null)
+            if (_statList == null)
             {
                 _statList = new StatList();
+                _statList.AddStat(_stat);
             }
-            _statList.AddStat(_stat);
+            
             return _statList;
         }
 

@@ -18,5 +18,6 @@ public enum MOB_TYPE
     WHEEL_BOT,
     WHEEL_BOT2,
     ZOMBIE_BOT,
-    STEAMROLLER_BOT    
+    STEAMROLLER_BOT,
+    BOSS_HYDRA,
 }

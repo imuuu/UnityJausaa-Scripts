@@ -5,7 +5,14 @@ namespace Game.Interactable
     [RequireComponent(typeof(Collider))]
     public class InteractableArea : SerializedMonoBehaviour, IInteractable
     {
+        [InfoBox("Can be null, if set it will show a UI plate when the player is in range")]
+        [SerializeField, BoxGroup("UI Interactable Plate")] private GameObject _UI_InteractablePlate;
+        [SerializeField, ToggleLeft, BoxGroup("UI Interactable Plate")] private bool _enableCustomLocationUIPlate = false;
+        [ShowIf(nameof(_enableCustomLocationUIPlate))]
+        [SerializeField, BoxGroup("UI Interactable Plate")] private Vector3 _UI_InteractablePlatePosition = Vector3.zero;
         private bool _playerInRange;
+
+        private GameObject _interactablePlateInstance;
 
         protected virtual void Awake()
         {
@@ -41,11 +48,13 @@ namespace Game.Interactable
 
         protected virtual void OnEnter()
         {
+            ShowInteractablePlate();
             _playerInRange = true;
         }
 
         protected virtual void OnExit()
         {
+            HideInteractablePlate();
             _playerInRange = false;
         }
 
@@ -67,6 +76,7 @@ namespace Game.Interactable
         /// </summary>
         public virtual bool Interact()
         {
+            ToggleInteractablePlate();
             return false;
         }
 
@@ -78,6 +88,38 @@ namespace Game.Interactable
             Gizmos.matrix = transform.localToWorldMatrix;
             if (col is BoxCollider b) Gizmos.DrawWireCube(b.center, b.size);
             if (col is SphereCollider s) Gizmos.DrawWireSphere(s.center, s.radius);
+        }
+
+        public GameObject GetInteractablePlate()
+        {
+            if (_interactablePlateInstance == null && _UI_InteractablePlate != null)
+            {
+                Vector3 platePosition = _enableCustomLocationUIPlate ? _UI_InteractablePlatePosition : transform.position;
+                _interactablePlateInstance = Instantiate(_UI_InteractablePlate, platePosition, Quaternion.identity);
+                _interactablePlateInstance.transform.SetParent(transform);
+            }
+            return _interactablePlateInstance;
+        }
+
+        public void ShowInteractablePlate()
+        {
+            GetInteractablePlate().SetActive(true);
+        }
+
+        public void HideInteractablePlate()
+        {
+            if (_interactablePlateInstance != null)
+            {
+                _interactablePlateInstance.SetActive(false);
+            }
+        }
+
+        public void ToggleInteractablePlate()
+        {
+            if (_interactablePlateInstance != null)
+            {
+                _interactablePlateInstance.SetActive(!_interactablePlateInstance.activeSelf);
+            }
         }
     }
 }

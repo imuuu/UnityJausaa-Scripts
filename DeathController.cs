@@ -57,7 +57,15 @@ public class DeathController : MonoBehaviour
             ManagerPrefabPooler.Instance.SpawnDeathEffect(this.gameObject, _deathEffectOptions);
         }
 
-        Destroy(gameObject);
+        gameObject.SetActive(false);
+
+        ActionScheduler.RunAfterDelay(1f, () =>
+        {
+            if (gameObject != null)
+            {
+                Destroy(gameObject);
+            }
+        });
     }
 
 }

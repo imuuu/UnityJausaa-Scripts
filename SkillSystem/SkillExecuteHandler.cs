@@ -13,8 +13,23 @@ namespace Game.SkillSystem
         [SerializeField] private Dictionary<SkillDefinition, ISkill> _skillDefinitions = new();
 
         [SerializeField] private LinkedList<IFixedUpdate> _skillsFixedUpdate = new();
+        [SerializeField] private LinkedList<ChargeEntry> _chargingSkills = new();
 
         private Dictionary<int, ISkillButtonUp> _waitButtonUp = new();
+
+        private sealed class ChargeEntry
+        {
+            public ISkill Skill;
+            public IChargeable Charge;
+            public float TimeLeft;
+            public float TotalTime;
+
+            public ChargeEntry(ISkill s, IChargeable c, float t)
+            {
+                Skill = s; Charge = c; TimeLeft = t; TotalTime = t;
+            }
+        }
+
 
         public bool OnButtonUp(int slot)
         {
@@ -29,6 +44,7 @@ namespace Game.SkillSystem
         public void UnityUpdate()
         {
             UpdateExpiringSkills();
+            UpdateChargingSkills();
             UpdateActiveSkills();
             UpdateCooldownSkills();
         }
@@ -84,6 +100,17 @@ namespace Game.SkillSystem
                 }
                 node2 = next;
             }
+
+            LinkedListNode<ChargeEntry> node3 = _chargingSkills.First;
+            while (node3 != null)
+            {
+                LinkedListNode<ChargeEntry> next = node3.Next;
+                if (node3.Value.Skill.GetInstanceID() == skill.GetInstanceID())
+                {
+                    _chargingSkills.Remove(node3);
+                }
+                node3 = next;
+            }
         }
 
         #region Skill Execute Logic
@@ -102,7 +129,7 @@ namespace Game.SkillSystem
         /// <returns></returns>//         
         public bool ExecuteSkill(ISkill skill)
         {
-            //Debug.Log($"Executing skill: {skill.GetType().Name} + " + skill.GetSkillName() + " slot: " + skill.GetSlot());
+            //Debug.Log($"@@Executing skill: {skill.GetType().Name} + " + skill.GetSkillName() + " slot: " + skill.GetSlot());
             //Due to the way the skill system is designed, we need to check if the skill is already active or on cooldown before executing it.
             // This is only due to button presses, so that doesnt trigger multiple times
             // this probably can be removed in future, tho it doesnt trigger only once like it should
@@ -146,21 +173,24 @@ namespace Game.SkillSystem
                 }
             }
 
-            if (skill is ICooldown cooldown)
-            {
-                if (cooldown.GetCurrentCooldown() > 0)
-                {
-                    //Debug.Log($"Skill {(skill is IHasName ? ((IHasName)skill).GetName() + " " : "")}is on cooldown. Time left: {cooldown.GetCurrentCooldown()}");
-                    return false;
-                }
-            }
+            if (skill is ICooldown cooldown && cooldown.GetCurrentCooldown() > 0f) return false;
 
-            if(skill is IFixedUpdate fixedUpdateSkill)
+            if (skill is IChargeable chargeable)
             {
-                if (!_skillsFixedUpdate.Contains(fixedUpdateSkill))
+                if (IsSkillCharging(skill)) return false; // already charging this instance
+                float t = chargeable.GetChargeTime();
+                if (t <= 0f)
                 {
-                    _skillsFixedUpdate.AddLast(fixedUpdateSkill);
+                    // zero-time charge -> end immediately and start
+                    chargeable.OnChargingStart();
+                    chargeable.OnChargingUpdate(1f);
+                    chargeable.OnChargingEnd();
+                    return ActivateSkill(skill);
                 }
+
+                chargeable.OnChargingStart();
+                _chargingSkills.AddLast(new ChargeEntry(skill, chargeable, t));
+                return true; // accepted; will activate when done
             }
 
             return ActivateSkill(skill); ;
@@ -196,6 +226,14 @@ namespace Game.SkillSystem
                 AddToCooldownList((ICooldown)skill);
             }
 
+            if (skill is IFixedUpdate fixedUpdateSkill)
+            {
+                if (!_skillsFixedUpdate.Contains(fixedUpdateSkill))
+                {
+                    _skillsFixedUpdate.AddLast(fixedUpdateSkill);
+                }
+            }
+
             _activeSkills.AddLast(skill);
             return true;
         }
@@ -219,6 +257,33 @@ namespace Game.SkillSystem
                     //Debug.Log($"====================> Skill {(skill is IHasName ? ((IHasName)skill).GetName() +" ": "")} has ended.");
                     OnEndSkill(skill);
                     _activeSkills.Remove(node);
+                }
+
+                node = next;
+            }
+        }
+
+        private void UpdateChargingSkills()
+        {
+            LinkedListNode<ChargeEntry> node = _chargingSkills.First;
+            while (node != null)
+            {
+                LinkedListNode<ChargeEntry> next = node.Next;
+                ChargeEntry entry = node.Value;
+
+                // progress 0..1 (clamped)
+                entry.TimeLeft -= Time.deltaTime;
+                float denom = (entry.TotalTime <= 0f) ? 1f : entry.TotalTime;
+                float progress = (entry.TotalTime - Mathf.Max(entry.TimeLeft, 0f)) / denom;
+                if (progress < 0f) progress = 0f; else if (progress > 1f) progress = 1f;
+
+                entry.Charge.OnChargingUpdate(progress);
+
+                if (entry.TimeLeft <= 0f)
+                {
+                    entry.Charge.OnChargingEnd();
+                    _chargingSkills.Remove(node);
+                    ActivateSkill(entry.Skill);
                 }
 
                 node = next;
@@ -311,6 +376,17 @@ namespace Game.SkillSystem
             return false;
         }
 
+        private bool IsSkillCharging(ISkill skill)
+        {
+            LinkedListNode<ChargeEntry> node = _chargingSkills.First;
+            while (node != null)
+            {
+                if (node.Value.Skill == skill) return true;
+                node = node.Next;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Update all cooldown skills each frame.  
         /// - Decrement cooldown  
@@ -385,11 +461,26 @@ namespace Game.SkillSystem
                 node = next;
             }
 
+            if (found) return;
+
+            LinkedListNode<ChargeEntry> cnode = _chargingSkills.First;
+            while (cnode != null)
+            {
+                LinkedListNode<ChargeEntry> next = cnode.Next;
+                if (cnode.Value.Skill is IManualEnd me && me == manualEndSkill)
+                {
+                    _chargingSkills.Remove(cnode);
+                    found = true;
+                    break;
+                }
+                cnode = next;
+            }
+
             if (!found)
             {
                 if (manualEndSkill is ISkill skill)
                 {
-                    Debug.LogWarning($"Skill {skill.GetSkillName()} NOT found in active or expire skills list.");
+                    Debug.LogWarning($"Skill {skill.GetSkillName()} NOT found in active, expiring, or charging lists.");
                 }
             }
         }
@@ -433,9 +524,24 @@ namespace Game.SkillSystem
                 node = next;
             }
 
+            if (found) return;
+
+            LinkedListNode<ChargeEntry> cnode = _chargingSkills.First;
+            while (cnode != null)
+            {
+                LinkedListNode<ChargeEntry> next = cnode.Next;
+                if (cnode.Value.Skill == endSkill)
+                {
+                    _chargingSkills.Remove(cnode);
+                    found = true;
+                    break;
+                }
+                cnode = next;
+            }
+
             if (!found)
             {
-                Debug.LogWarning($"END Skill {endSkill.GetSkillName()} NOT found in active or expire skills list.");
+                Debug.LogWarning($"END Skill {endSkill.GetSkillName()} NOT found in active, expiring, or charging lists.");
             }
         }
 

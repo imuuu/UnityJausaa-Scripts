@@ -31,5 +31,7 @@ namespace Game.StatSystem
         BLOCK_CHANCE,
         REFLECT_DAMAGE_PERCENT,
         HEAL,
+        CHARGE_TIME,
+        COOLDOWN_REDUCTION_PERCENT
     }
 }

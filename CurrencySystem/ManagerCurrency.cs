@@ -184,7 +184,21 @@ public class ManagerCurrency : MonoBehaviour
 
         GameObject orbGO = _currencyLibrary.GetPooledCurrencyPrefab(info.currencyType);
 
-        Vector3 randomOffset = UnityEngine.Random.insideUnitSphere * 1; // small random offset
+        Vector3 randomOffset = UnityEngine.Random.insideUnitSphere * 1;
+
+        float yPosition = trans.position.y;
+        const int maxGroundHeight = 1;
+        if (yPosition > maxGroundHeight)
+        {
+            RaycastHit hit;
+            LayerMask layerMask = LayerMask.GetMask("Ground");
+            if (Physics.Raycast(trans.position, Vector3.down, out hit, 50, layerMask))
+            {
+                yPosition = hit.point.y;
+            }
+        }
+
+        if(yPosition < 0) yPosition = 0;
 
         orbGO.transform.position = new Vector3(trans.position.x + randomOffset.x, trans.position.y, trans.position.z + randomOffset.z);
 

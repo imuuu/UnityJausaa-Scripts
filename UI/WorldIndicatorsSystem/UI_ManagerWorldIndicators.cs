@@ -62,6 +62,11 @@ public class UI_ManagerWorldIndicators : MonoBehaviour
     /// </summary>
     public void ShowIndicator(Vector3 worldPosition, INDICATOR_TYPE type, float amount, Sprite iconSprite = null)
     {
+        if(!_initialized)
+        {
+            return;
+        }
+
         if (!_enable || !_configMap.ContainsKey(type))
             return;
 

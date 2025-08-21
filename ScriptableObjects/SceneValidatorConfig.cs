@@ -5,6 +5,9 @@ using System.Collections.Generic;
 [CreateAssetMenu(fileName = "SO_SceneValidatorConfig", menuName = "Configurations/Scene Validator Config")]
 public class SceneValidatorConfig : ScriptableObject
 {
+    [Header("Object names must be unique")]
+    [Tooltip("List of object names that can be only one instance in the scenes.")]
+    public string[] ObjectNamesToBeOne;
     [Header("Prefabs must exist in standalone scenes")]
     [Tooltip("List of prefabs that must exist in standalone scenes.")]
     public GameObject[] RequiredPrefabs;
@@ -15,10 +18,14 @@ public static class SceneValidator
     private static SceneValidatorConfig _config;
     private const string PREFIX = "<color=#FF00FF>[SceneValidator]</color>";
 
+    private static Dictionary<string, GameObject> _objectNamesToBeOne = new();
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Initialize()
     {
         _config = Resources.Load<SceneValidatorConfig>("SO_SceneValidatorConfig");
+
+        _objectNamesToBeOne = new Dictionary<string, GameObject>();
 
         if (_config == null)
         {
@@ -38,20 +45,40 @@ public static class SceneValidator
             return;
         }
 
-        Dictionary<string, GameObject> rootObjectNames = new ();
-        
+        Dictionary<string, GameObject> rootObjectNames = new();
+
         for (int i = 0; i < SceneManager.sceneCount; i++)
         {
             Scene activeScene = SceneManager.GetSceneAt(i);
             foreach (GameObject rootObject in activeScene.GetRootGameObjects())
             {
-                if(rootObjectNames.ContainsKey(rootObject.name))
+                if (rootObjectNames.ContainsKey(rootObject.name))
                 {
                     continue;
                 }
 
                 string rootObjectName = rootObject.name.Replace("(Clone)", "").Trim();
-                if(rootObjectNames.ContainsKey(rootObjectName))
+
+                if (!_objectNamesToBeOne.ContainsKey(rootObjectName))
+                {
+                    for (int j = 0; j < _config.ObjectNamesToBeOne.Length; j++)
+                    {
+                        if (_config.ObjectNamesToBeOne[j] == rootObjectName)
+                        {
+                            Debug.Log($"{PREFIX} Found object name that must be unique: {rootObjectName}");
+                            _objectNamesToBeOne.Add(rootObjectName, rootObject);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"{PREFIX} Duplicate root object name found: {rootObjectName}. This may cause issues.");
+                    GameObject.Destroy(rootObject);
+                    continue;
+                }
+
+                if (rootObjectNames.ContainsKey(rootObjectName))
                 {
                     continue;
                 }
@@ -74,12 +101,20 @@ public static class SceneValidator
                 Debug.Log($"{PREFIX} Spawn missing prefab: {prefabName}");
                 Object.Instantiate(prefab);
             }
-            else if(!rootObjectNames[prefabName].activeSelf)
+            else if (!rootObjectNames[prefabName].activeSelf)
             {
                 Debug.Log($"{PREFIX} Respawn inactive prefab: {prefabName}");
 
                 GameObject.Destroy(rootObjectNames[prefabName]);
                 Object.Instantiate(prefab);
+            }
+        }
+        
+        if(_config.ObjectNamesToBeOne != null && _config.ObjectNamesToBeOne.Length > 0)
+        {
+            foreach (string objectName in _config.ObjectNamesToBeOne)
+            {
+                
             }
         }
     }

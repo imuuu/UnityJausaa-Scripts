@@ -148,6 +148,8 @@ public class ManagerSpawning : MonoBehaviour
 
         if (ManagerPause.IsPaused()) return;
 
+        if (!ManagerBosses.Instance.IsMobSpawnAllowed()) return;
+
         _waveTimer += Time.deltaTime;
         SpawnWave currentWave = _waves[_currentWaveIndex];
 
@@ -285,7 +287,7 @@ public class ManagerSpawning : MonoBehaviour
         return spawnPosition;
     }
 
-    private bool IsValidSpawnPosition(Vector3 position, GameObject prefab)
+    public bool IsValidSpawnPosition(Vector3 position, GameObject prefab)
     {
         EntityStatistics stats = prefab.GetComponent<EntityStatistics>();
         if (stats == null)

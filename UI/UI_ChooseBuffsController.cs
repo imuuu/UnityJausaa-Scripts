@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using Game.BuffSystem;
-using Game.StatSystem;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
@@ -12,6 +10,8 @@ namespace Game.UI
         [SerializeField] private float _delayBetweenCards = 0.1f;
         [SerializeField] private float _delayBeforeActivate = 1f;
         [SerializeField] private List<UI_ChooseBuffCard> _chooseBuffCardVisuals;
+
+        private List<BuffCard> _buffCards;
 
         public void Awake()
         {
@@ -36,12 +36,16 @@ namespace Game.UI
         public void Activate()
         {
             Deactivate();
-            ManagerBuffs.Instance.ClearRolledModifiers();
+
+            _buffCards = ManagerBuffs.Instance.GetBuffCards(_chooseBuffCardVisuals.Count);
+
+            ActionScheduler.CancelActions(gameObject.GetInstanceID());
+
             ActionScheduler.RunAfterDelay(_delayBeforeActivate, () =>
             {
                 ManagerBuffs.Instance.OnChooseCardsOpen();
                 RecrusiveActivate(0, _delayBetweenCards <= 0 ? true : false);
-            });
+            }, gameObject.GetInstanceID());
         }
 
         [Button("Deactivate")]
@@ -73,17 +77,9 @@ namespace Game.UI
             }
         }
 
-        // private void ActivateCard(int i)
-        // {
-        //     BuffDefinition buffDefinition = ManagerBuffs.Instance.GetRandomBuffOrSkill();
-        //     _chooseBuffCardVisuals[i].ApplyBuffDefinition(buffDefinition);
-        //     _chooseBuffCardVisuals[i].gameObject.SetActive(true);
-        // }
-
         private void ActivateCard(int i)
         {
-            BuffCard buffCard = ManagerBuffs.Instance.GetRandomBuffCard();
-            _chooseBuffCardVisuals[i].ApplyBuffCard(buffCard);
+            _chooseBuffCardVisuals[i].ApplyBuffCard(_buffCards[i]);
             _chooseBuffCardVisuals[i].gameObject.SetActive(true);
         }
 

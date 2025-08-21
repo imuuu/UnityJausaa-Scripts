@@ -55,6 +55,7 @@ namespace Game.SkillSystem
 
         public override void EndSkill()
         {
+            base.EndSkill();
             if (_orbitalVisual != null)
             {
                 _orbitalVisual.ClearByPrefab(_shieldVisualPrefab);

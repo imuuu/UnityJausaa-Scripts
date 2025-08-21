@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.HitDetectorSystem;
+using Game.PoolSystem;
 using Game.StatSystem;
 using Sirenix.OdinInspector;
 using Unity.Entities.UniversalDelegates;
@@ -58,6 +59,11 @@ namespace Game.SkillSystem
         {
             _isAwaken = true;
 
+            _dirScratch = new List<Vector3>();
+            _spawnedTracked = new List<GameObject>();
+            _spawnedIndices = new List<int>();
+            _followTotalCount = 0;
+
             // if (_baseStats == null)
             // {
             //     Debug.LogWarning("Base stats is null, cannot initialize ability." + GetSkillName());
@@ -79,8 +85,16 @@ namespace Game.SkillSystem
         }
 
         public abstract void StartSkill();
-        public abstract void EndSkill();
-        public abstract void UpdateSkill();
+        public virtual void EndSkill()
+        {
+            ActionScheduler.CancelActions(ID_BURST_DELAY + GetInstanceID());
+            ReturnAllSpawned();
+        }
+
+        public virtual void UpdateSkill()
+        {
+            UpdateSpawnPatternFollow();
+        }
         public virtual bool IsSkillUsable()
         {
             return true;
@@ -226,6 +240,7 @@ namespace Game.SkillSystem
             else
                 _tempStatsToReceivers.Clear();
 
+
             for (int l = 0; l < statReceivers.Length; l++)
             {
                 if (statReceivers[l] == null) continue;
@@ -234,11 +249,21 @@ namespace Game.SkillSystem
 
                 if (statReceiver == null) continue;
 
+                // if(statReceiver is MonoBehaviour mono)
+                // {
+                //    Debug.Log($"StatReceiver: {mono.GetType().Name} on {mono.gameObject.name}");
+                // }
+
+                // Skip hit detectors, due to ApplyStats does it
+                if (statReceiver is IHitDetector) continue;
+
                 if (statReceiver.GetStats() == null || statReceiver.GetStats()._stats == null) continue;
 
                 for (int i = 0; i < statReceiver.GetStats()._stats.Count; i++)
                 {
                     Stat stat = statReceiver.GetStats()._stats[i];
+
+                    // Due to stat receiver there can be null stats.
                     if (stat == null) continue;
 
                     STAT_TYPE statType = stat.GetTags()[0];
@@ -281,27 +306,27 @@ namespace Game.SkillSystem
             float θ = (2 * Mathf.PI / pointAmount) * index;
             return new Vector3(Mathf.Cos(θ), 0, Mathf.Sin(θ)) * radius;
         }
-        public Vector3 GetShootPattern(int index, int pointAmount, SHOOTING_PATTERN pattern)
-        {
-            Vector3 projectileDirection = GetDirection(_direction);
-            Vector3 baseDirection = GetDirection(_direction);
-            const float _coneAngle = 45f; // Example cone angle
-            switch (pattern)
-            {
-                case SHOOTING_PATTERN.CONE:
-                    float angleStep = _coneAngle / (pointAmount - 1);
-                    float offsetAngle = -_coneAngle / 2 + angleStep * index;
-                    projectileDirection = Quaternion.Euler(0, offsetAngle, 0) * baseDirection;
-                    break;
-                case SHOOTING_PATTERN.CIRCLE:
-                    float circleAngle = 360f / pointAmount;
-                    float circleOffset = circleAngle * index;
-                    projectileDirection = Quaternion.Euler(0, circleOffset, 0) * baseDirection;
-                    break;
-            }
+        // public Vector3 GetShootPattern(int index, int pointAmount, SHOOTING_PATTERN pattern)
+        // {
+        //     Vector3 projectileDirection = GetDirection(_direction);
+        //     Vector3 baseDirection = GetDirection(_direction);
+        //     const float _coneAngle = 45f; // Example cone angle
+        //     switch (pattern)
+        //     {
+        //         case SHOOTING_PATTERN.CONE:
+        //             float angleStep = _coneAngle / (pointAmount - 1);
+        //             float offsetAngle = -_coneAngle / 2 + angleStep * index;
+        //             projectileDirection = Quaternion.Euler(0, offsetAngle, 0) * baseDirection;
+        //             break;
+        //         case SHOOTING_PATTERN.CIRCLE:
+        //             float circleAngle = 360f / pointAmount;
+        //             float circleOffset = circleAngle * index;
+        //             projectileDirection = Quaternion.Euler(0, circleOffset, 0) * baseDirection;
+        //             break;
+        //     }
 
-            return projectileDirection;
-        }
+        //     return projectileDirection;
+        // }
 
         public int GetProjectileAmount()
         {
@@ -316,7 +341,7 @@ namespace Game.SkillSystem
 
         public bool IsRecastable()
         {
-            return this is IRecastSkill && _ownerType == OWNER_TYPE.PLAYER;
+            return this is IRecastSkill; // && _ownerType == OWNER_TYPE.PLAYER;
         }
 
         public SimpleDamage CreateSimpleDamage(float damage = 0f)
@@ -327,6 +352,258 @@ namespace Game.SkillSystem
                 DamageSourceHelper.GetSourceFromOwner(_ownerType));
             return simpleDamage;
         }
+        #region PatternSystem
+        [SerializeField]
+        protected class SpawnPatternParams
+        {
+            public Vector3 SpawnOffset;   // z = forward distance, y = height, x ignored by default
+            public SHOOTING_PATTERN Pattern;
+            public float ConeAngle;
+            [ShowIf(nameof(Pattern), SHOOTING_PATTERN.BURST)] public float BurstDelay;
+            [ToggleLeft] public bool FollowUser;
+        }
+
+        [SerializeField] private bool _enableSpawnPattern;
+        [SerializeField, ShowIf(nameof(_enableSpawnPattern)), BoxGroup("Spawn Pattern")]
+        protected SpawnPatternParams SpawnPattern;
+
+        // Abilities override this to feed their own fields (keeps old names/locations intact)
+        protected virtual SpawnPatternParams GetSpawnPatternParams()
+        {
+            return SpawnPattern;
+
+        }
+
+        private List<Vector3> _dirScratch;
+        private List<GameObject> _spawnedTracked;
+
+        private List<int> _spawnedIndices; // pattern-indeksi / slotti kohden
+        private int _followTotalCount;     // viimeisin kokonaismäärä (cone-asteikkoa varten)
+
+        private const string ID_BURST_DELAY = "BurstDelay";
+
+        // Calls spawnAtIndex for each projectile with (index, direction, spawnPosition)
+        protected void ForEachSpawnPoint(int count, Vector3 baseDirection, System.Action<int, Vector3, Vector3> spawnAtIndex)
+        {
+            SpawnPatternParams p = GetSpawnPatternParams();
+
+            _dirScratch.Clear();
+            GeneratePatternDirections(count, baseDirection, p.Pattern, p.ConeAngle, _dirScratch);
+
+            if (p.Pattern == SHOOTING_PATTERN.BURST && p.BurstDelay > 0f)
+            {
+                for (int i = 0; i < _dirScratch.Count; i++)
+                {
+                    int idx = i; // avoid closure capture bug
+                    Vector3 dir = _dirScratch[idx];
+                    ActionScheduler.RunAfterDelay(p.BurstDelay * idx, () =>
+                    {
+                        Vector3 pos = ComputeSpawnPosition(GetUserTransform().position, dir, p.SpawnOffset);
+                        spawnAtIndex(idx, dir, pos);
+                    },ID_BURST_DELAY + GetInstanceID());
+                }
+            }
+            else
+            {
+                for (int i = 0; i < _dirScratch.Count; i++)
+                {
+                    Vector3 dir = _dirScratch[i];
+                    Vector3 pos = ComputeSpawnPosition(GetUserTransform().position, dir, p.SpawnOffset);
+                    spawnAtIndex(i, dir, pos);
+                }
+            }
+        }
+
+        protected void SpawnObject(GameObject prefab)
+        {
+            SpawnObject(prefab, null);
+        }
+
+        /// <summary>
+        /// Spawns a game object from the prefab.
+        /// Init(GameObject, Count, Position, Direction)
+        /// </summary>
+        /// <param name="prefab"></param>
+        /// <param name="init"></param>
+        protected void SpawnObject(
+        GameObject prefab,
+        System.Action<GameObject, int, Vector3, Vector3> init)
+        {
+            if (prefab == null)
+            {
+                Debug.LogError("SpawnObject prefab is null in " + GetType().Name);
+                return;
+            }
+            if (_baseStats == null)
+            {
+                Debug.LogError("Base stats is null in ability " + GetSkillName());
+                return;
+            }
+
+            int count = GetProjectileAmount();
+            Vector3 baseDir = GetDirection(_direction);
+
+            ForEachSpawnPoint(count, baseDir, (index, direction, pos) =>
+            {
+                int slot = _spawnedTracked.Count;
+                _spawnedTracked.Add(null);
+                _spawnedIndices.Add(index);
+                _followTotalCount = Mathf.Max(_followTotalCount, count);
+
+                GameObject go = ManagerPrefabPooler.Instance.GetFromPool(prefab, (returned) =>
+                {
+                    if (_spawnedTracked != null && slot < _spawnedTracked.Count && _spawnedTracked[slot] == returned)
+                        _spawnedTracked[slot] = null;
+                });
+
+                if (go == null)
+                {
+                    Debug.LogError("Pool returned null for " + prefab.name);
+                    return;
+                }
+
+                _spawnedTracked[slot] = go;
+
+                IOwner ownerComp = go.GetComponent<IOwner>();
+                if (ownerComp != null) ownerComp.SetOwner(GetOwnerType());
+
+                go.transform.position = pos;
+                if (direction.sqrMagnitude > 0.0001f) go.transform.forward = direction;
+
+                init?.Invoke(go, index, pos, direction);
+            });
+        }
+
+        protected void ReturnAllSpawned()
+        {
+            //Debug.Log($"@@@@@Returning all spawned objects for {GetType().Name}, count: {_spawnedTracked.Count}");
+            if (_spawnedTracked == null || _spawnedTracked.Count == 0) return;
+
+            for (int i = 0; i < _spawnedTracked.Count; i++)
+            {
+                GameObject go = _spawnedTracked[i];
+                if (go == null) continue;
+                if (go.activeSelf) ManagerPrefabPooler.Instance.ReturnToPool(go);
+                _spawnedTracked[i] = null;
+            }
+            _spawnedTracked.Clear();
+            _spawnedIndices?.Clear();
+            _followTotalCount = 0;
+        }
+
+        protected static void GeneratePatternDirections(int count, Vector3 baseDirection,
+            SHOOTING_PATTERN pattern, float coneAngle, List<Vector3> outDirs)
+        {
+            outDirs.Clear();
+
+            if (count <= 1)
+            {
+                outDirs.Add(baseDirection.normalized);
+                return;
+            }
+
+            switch (pattern)
+            {
+                case SHOOTING_PATTERN.CONE:
+                    {
+                        float step = coneAngle / (count - 1);
+                        float start = -coneAngle * 0.5f;
+                        for (int i = 0; i < count; i++)
+                        {
+                            float yaw = start + step * i;
+                            outDirs.Add(Quaternion.Euler(0f, yaw, 0f) * baseDirection);
+                        }
+                        break;
+                    }
+                case SHOOTING_PATTERN.CIRCLE:
+                    {
+                        float step = 360f / count;
+                        for (int i = 0; i < count; i++)
+                        {
+                            float yaw = step * i;
+                            outDirs.Add(Quaternion.Euler(0f, yaw, 0f) * baseDirection);
+                        }
+                        break;
+                    }
+                case SHOOTING_PATTERN.BURST:
+                default:
+                    {
+                        for (int i = 0; i < count; i++)
+                            outDirs.Add(baseDirection.normalized);
+                        break;
+                    }
+            }
+        }
+
+        protected static Vector3 GetPatternDirectionAt(
+    int index, int count, Vector3 baseDirection, SHOOTING_PATTERN pattern, float coneAngle)
+        {
+            baseDirection = baseDirection.sqrMagnitude > 0.0001f ? baseDirection.normalized : Vector3.forward;
+
+            if (count <= 1 || pattern == SHOOTING_PATTERN.BURST)
+                return baseDirection;
+
+            switch (pattern)
+            {
+                case SHOOTING_PATTERN.CONE:
+                    {
+                        float step = coneAngle / (count - 1);
+                        float yaw = -coneAngle * 0.5f + step * index;
+                        return Quaternion.Euler(0f, yaw, 0f) * baseDirection;
+                    }
+                case SHOOTING_PATTERN.CIRCLE:
+                    {
+                        float step = 360f / count;
+                        return Quaternion.Euler(0f, step * index, 0f) * baseDirection;
+                    }
+                default:
+                    return baseDirection;
+            }
+        }
+
+        protected void UpdateSpawnPatternFollow()
+        {
+            if (!_enableSpawnPattern || SpawnPattern == null || !SpawnPattern.FollowUser)
+                return;
+
+            if (_spawnedTracked == null || _spawnedTracked.Count == 0)
+                return;
+
+            if (_followTotalCount <= 0)
+                _followTotalCount = Mathf.Max(_followTotalCount, _spawnedTracked.Count);
+
+            Vector3 userPos = GetUserTransform().position;
+            Vector3 baseDir = GetDirection(_direction);
+            SHOOTING_PATTERN pattern = SpawnPattern.Pattern;
+            float cone = SpawnPattern.ConeAngle;
+            Vector3 offset = SpawnPattern.SpawnOffset;
+
+            for (int slot = 0; slot < _spawnedTracked.Count; slot++)
+            {
+                GameObject go = _spawnedTracked[slot];
+                if (go == null) continue;
+
+                int idx = (slot < _spawnedIndices.Count) ? _spawnedIndices[slot] : slot;
+
+                Vector3 dir = GetPatternDirectionAt(idx, _followTotalCount, baseDir, pattern, cone);
+                Vector3 pos = ComputeSpawnPosition(userPos, dir, offset);
+
+                go.transform.position = pos;
+                if (dir.sqrMagnitude > 0.0001f) go.transform.forward = dir;
+            }
+        }
+
+        protected static Vector3 ComputeSpawnPosition(Vector3 userPos, Vector3 direction, Vector3 spawnOffset)
+        {
+            // Keeps your current semantics: z => forward distance, y => height
+            Vector3 pos = userPos + direction.normalized * spawnOffset.z;
+            pos.y = userPos.y + spawnOffset.y;
+            // If you ever want offset.x as "right" offset, you can add:
+            // pos += Vector3.Cross(Vector3.up, direction.normalized).normalized * spawnOffset.x;
+            return pos;
+        }
+
+        #endregion PatternSystem
 
         #region Getters and Setters
         public GameObject GetUser()
@@ -378,6 +655,14 @@ namespace Game.SkillSystem
             return _baseStats.GetStat(STAT_TYPE.DURATION).GetValue();
         }
 
+        /// <summary>
+        /// Returns the charge time of the ability. Normally used if skill has IChargeable interface.
+        /// </summary>
+        public float GetChargeTime()
+        {
+            return _baseStats.GetValueOfStat(STAT_TYPE.CHARGE_TIME);
+        }
+
         public void SetCooldown(float cooldown)
         {
             _baseStats.GetStat(STAT_TYPE.COOLDOWN).SetBaseValue(cooldown);
@@ -386,12 +671,18 @@ namespace Game.SkillSystem
         public float GetCooldown()
         {
             float cooldown = _baseStats.GetStat(STAT_TYPE.COOLDOWN).GetValue();
+            float cooldown_reduction_percent = _baseStats.GetValueOfStat(STAT_TYPE.COOLDOWN_REDUCTION_PERCENT);
             if (_ownerType == OWNER_TYPE.PLAYER)
             {
                 float playerCastSpeed = Player.Instance.GetStatValue(STAT_TYPE.CAST_SPEED);
 
                 if (playerCastSpeed > 0) cooldown /= (1 + playerCastSpeed / 100f);
 
+            }
+
+            if (cooldown_reduction_percent > 0)
+            {
+                cooldown *= (1 - cooldown_reduction_percent / 100f);
             }
 
             if (cooldown < CONSTANTS.SKILL_LOWEST_COOLDOWN)

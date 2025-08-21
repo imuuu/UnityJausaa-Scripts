@@ -295,9 +295,13 @@ namespace Game.SkillSystem
 
                 //pathSkill.transform.LookAt(spawnPosition + direction*10f);
 
+                //TODO add speed here probably
+
+                float baseSpeed = _baseStats.GetValueOfStat(STAT_TYPE.SPEED);
+
                 pathSkill.SetDirection(direction);
 
-                pathSkill.AddObjectToPath(projectile, Vector3.zero, () => 
+                pathSkill.AddObjectToPath(projectile, Vector3.zero, baseSpeed, () => 
                 {
                     if(spawned == null || !spawned.activeSelf) return;
 

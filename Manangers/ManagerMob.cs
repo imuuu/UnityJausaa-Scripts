@@ -119,6 +119,18 @@ public class ManagerMob : MonoBehaviour
         }
     }
 
+    public void DespawnAllNonBossMobs()
+    {
+        foreach (Transform enemy in _enemyList.ToArray())
+        {
+            Mob mob = enemy.GetComponent<Mob>();
+
+            if (mob is IBoss) continue;
+
+            enemy.gameObject.SetActive(false);
+        }
+    }
+
     /// <summary>
     /// Returns the current cached closest enemy transforms.
     /// </summary>

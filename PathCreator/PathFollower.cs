@@ -42,7 +42,7 @@ namespace Game.PathSystem
 
         public void Update()
         {
-            if(ManagerPause.IsPaused()) return;
+            if (ManagerPause.IsPaused()) return;
 
             PathCreator path = _parameters.Path;
             if (path == null || path.NumPoints < 4) return;
@@ -81,7 +81,7 @@ namespace Game.PathSystem
             _t = raw;
 
             _lastPos = transform.position;
-           
+
             transform.position = GetPoint(path, _t);
 
             if (_parameters.IsLookForward)
@@ -89,17 +89,17 @@ namespace Game.PathSystem
                 transform.LookAt(GetPoint(path, _t + (_parameters.IsReverse ? -0.05f : 0.05f)));
             }
 
-            if(OnComplete == null) return;
+            if (OnComplete == null) return;
 
             if ((_parameters.FollowMode == FOLLOW_MODE.ONCE && !_parameters.IsReverse && _progress >= 1f)
-             || (_parameters.FollowMode == FOLLOW_MODE.ONCE && _parameters.IsReverse  && _progress <= 0f))
+             || (_parameters.FollowMode == FOLLOW_MODE.ONCE && _parameters.IsReverse && _progress <= 0f))
             {
                 //Debug.Log("PathFollower: Completed path travel.");
                 OnComplete?.Invoke();
                 OnComplete = null;
             }
         }
-        
+
 
 
         private void WrapParam(ref float p)
@@ -151,12 +151,47 @@ namespace Game.PathSystem
 
         private void InitializeArcLength(PathCreator path)
         {
-            int segCount = (path.NumPoints - 1) / 3
+            int segCount = 0;
+            Vector3 prev = Vector3.zero;
+            if (path.GetDrawMode() == DrawMode.Linear)
+            {
+                segCount = path.NumPoints - 1 + (path.IsClosed() ? 1 : 0);
+                _sampleTs = new List<float>(segCount * _parameters.SamplesPerSegment + 1);
+                _sampleLengths = new List<float>(segCount * _parameters.SamplesPerSegment + 1);
+
+                prev = path.GetPoint(0);
+                float length = 0f;
+                _sampleTs.Add(0f);
+                _sampleLengths.Add(0f);
+
+                for (int s = 0; s < segCount; s++)
+                {
+                    for (int i = 1; i <= _parameters.SamplesPerSegment; i++)
+                    {
+                        float u = i / (float)_parameters.SamplesPerSegment;
+                        Vector3 a = path.GetPoint(s);
+                        Vector3 b = path.GetPoint((s + 1) % path.NumPoints);
+                        Vector3 curr = Vector3.Lerp(a, b, u);
+                        length += Vector3.Distance(prev, curr);
+                        float t = (s + u) / segCount;
+                        _sampleTs.Add(t);
+                        _sampleLengths.Add(length);
+                        prev = curr;
+                    }
+                }
+
+                _totalLength = length;
+                _traveledDistance = _parameters.IsReverse ? _totalLength : 0f;
+                _direction = _parameters.IsReverse ? -1 : 1;
+                _initialized = true;
+                return;
+            }
+            segCount = (path.NumPoints - 1) / 3
                          + (path.IsClosed() ? 1 : 0);
             _sampleTs = new List<float>(segCount * _parameters.SamplesPerSegment + 1);
             _sampleLengths = new List<float>(segCount * _parameters.SamplesPerSegment + 1);
 
-            Vector3 prev = GetPoint(path, 0f);
+            prev = GetPoint(path, 0f);
             _totalLength = 0f;
             _sampleTs.Add(0f);
             _sampleLengths.Add(0f);
@@ -187,7 +222,7 @@ namespace Game.PathSystem
             _lastPointCount = path.NumPoints;
             _lastClosed = path.IsClosed();
 
-            if(_parameters.IsReverse) _progress = 1f;
+            if (_parameters.IsReverse) _progress = 1f;
         }
 
         private float GetTForDistance(float dist)
@@ -212,11 +247,26 @@ namespace Game.PathSystem
                 t %= 1f;
                 if (t < 0f) t += 1f;
             }
-            int segCount = (path.NumPoints - 1) / 3
+            int segCount = 0;
+            float overall = 0f;
+            int si = 0;
+            float u = 0f;
+            if (path.GetDrawMode() == DrawMode.Linear)
+            {
+                segCount = path.NumPoints - 1 + (path.IsClosed() ? 1 : 0);
+                overall = t * segCount;
+                si = Mathf.Min(Mathf.FloorToInt(overall), segCount - 1);
+                u = overall - si;
+                Vector3 a = path.GetPoint(si);
+                Vector3 b = path.GetPoint((si + 1) % path.NumPoints);
+                return Vector3.Lerp(a, b, u);
+            }
+
+            segCount = (path.NumPoints - 1) / 3
                          + (path.IsClosed() ? 1 : 0);
-            float overall = t * segCount;
-            int si = Mathf.Min(Mathf.FloorToInt(overall), segCount - 1);
-            float u = overall - si;
+            overall = t * segCount;
+            si = Mathf.Min(Mathf.FloorToInt(overall), segCount - 1);
+            u = overall - si;
             int i = si * 3;
             return Bezier.GetPoint(
                 path.GetPoint(i + 0),

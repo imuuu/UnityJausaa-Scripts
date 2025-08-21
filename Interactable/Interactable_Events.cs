@@ -7,6 +7,7 @@ namespace Game.Interactable
         [SerializeField] private UnityEvent _onInteract;
         public override bool Interact()
         {
+            base.Interact();
             _onInteract.Invoke();
             return true;
         }

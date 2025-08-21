@@ -108,6 +108,12 @@ namespace Game.PoolSystem
                 for (int i = _returningToHolder.Count - 1; i >= 0; i--)
                 {
                     (GameObject, Pool) item = _returningToHolder[i];
+                    if (item.Item1 == null)
+                    {
+                        Debug.LogWarning("ManagerPrefabPooler: Returning null object to pool. Removing from returning list. PoolHolder: " + item.Item2.PoolHolder.name);
+                        _returningToHolder.RemoveAt(i);
+                        continue;
+                    }
                     item.Item1.transform.SetParent(item.Item2.PoolHolder.transform, false);
                     _returningToHolder.RemoveAt(i);
                 }

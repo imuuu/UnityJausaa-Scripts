@@ -51,7 +51,7 @@ namespace Game.SkillSystem
             }
         }
 
-        public void AddObjectToPath(IProjectile projectile, Vector3 localPos, Action onComplete = null)
+        public void AddObjectToPath(IProjectile projectile, Vector3 localPos, float baseMoveSpeed = -1, Action onComplete = null)
         {
             GameObject pathObjectHolder = GetHolderOrCreateNew();
 
@@ -68,6 +68,11 @@ namespace Game.SkillSystem
                 projectileTransform.localRotation = Quaternion.Euler(0, 0, 0);
 
             PathFollower pathFollower = pathObjectHolder.GetOrAddComponent<PathFollower>();
+
+            if (baseMoveSpeed > 0)
+            {
+                _followerParameters.BaseSpeed = baseMoveSpeed;
+            }
             pathFollower.SetParameters(_followerParameters);
 
             //pathObjectHolder.GetOrAddComponent<MedianDirectionController>();

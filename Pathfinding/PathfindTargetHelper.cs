@@ -18,19 +18,31 @@ namespace Game.Pathfind
         [HideIf("_findPlayer")]
         [SerializeField] private Transform _target;
 
-        protected  void Start()
+        protected void Start()
         {
             if (!_findPlayer) return;
 
-            ActionScheduler.RunWhenTrue(IsPlayerPresent, () =>
+            // ActionScheduler.RunWhenTrue(IsPlayerPresent, () =>
+            // {
+            //     SetTarget(Player.Instance.transform);
+            // });
+        }
+
+        protected void OnEnable()
+        {
+            if (_findPlayer && _target == null)
             {
-                SetTarget(Player.Instance.transform);
-            });
+                ActionScheduler.RunWhenTrue(IsPlayerPresent, () =>
+                {
+                    _target = Player.Instance.transform;
+                    SetTarget(_target);
+                });
+            }
         }
 
         public void SetTarget(Transform newTarget)
         {
-            for(int i = 0; i < _targetScripts.Length; i++)
+            for (int i = 0; i < _targetScripts.Length; i++)
             {
                 _targetScripts[i].SetTarget(newTarget);
             }
