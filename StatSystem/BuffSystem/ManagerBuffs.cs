@@ -18,22 +18,16 @@ namespace Game.BuffSystem
 
         [SerializeField] private RarityListHolder _rarityListHolder;
         [SerializeField] private StatSystemIcons _statSystemIcons;
-        // [SerializeField] private List<RarityDefinition> _modRarities = new List<RarityDefinition>
-        // {
-        //     new RarityDefinition { Rarity = MODIFIER_RARITY.COMMON, Threshold = 0.7f, MainColor = Color.white },
-        //     new RarityDefinition { Rarity = MODIFIER_RARITY.UNCOMMON, Threshold = 0.53f, MainColor = Color.green },
-        //     new RarityDefinition { Rarity = MODIFIER_RARITY.RARE, Threshold = 0.4f, MainColor = Color.blue },
-        //     new RarityDefinition { Rarity = MODIFIER_RARITY.EPIC, Threshold = 0.25f, MainColor = Color.magenta },
-        //     new RarityDefinition { Rarity = MODIFIER_RARITY.LEGENDARY, Threshold = 0.1f, MainColor = Color.yellow }
-        // };
-
+       
         [SerializeField, ReadOnly] private List<Modifier> _activeBuffs = new();
         [ShowInInspector] private Dictionary<int, List<Modifier>> _rolledModifiers = new();
         [ShowInInspector] private float[] _probabilities;
 
         private bool _isSelectingBuffs = false;
         private bool _middleOfChoosing = false;
-        [SerializeField, ReadOnly] private int _choosesLeft = 0;
+        [SerializeField, ReadOnly] private List<BUFF_OPEN_TYPE> _choosesLeft = new();
+        private BUFF_OPEN_TYPE _currentOpenType;
+        private BUFF_OPEN_TYPE _lastOpenType;
 
         public int _chanceToGetSkill = 30;
         public const int DEFAULT_CHANCE_TO_GET_SKILL = 30;
@@ -76,7 +70,7 @@ namespace Game.BuffSystem
 
             if (_middleOfChoosing)
             {
-                OnChooseBuffs();
+                TriggerChooseBuffs(_lastOpenType);
             }
 
             return true;
@@ -94,7 +88,7 @@ namespace Game.BuffSystem
         {
             _chanceToGetSkill = DEFAULT_CHANCE_TO_GET_SKILL;
             _middleOfChoosing = false;
-            _choosesLeft = 0;
+            _choosesLeft.Clear();
             _buffCards.Clear();
             CloseChooseBuffs();
             return true;
@@ -164,28 +158,32 @@ namespace Game.BuffSystem
         private bool OnPlayerLevelChange(int playerLevel)
         {
             Debug.Log($"<color=#1db8fb>[ManagerBuffs]</color> Player level changed: {playerLevel}");
+            TriggerChooseBuffs(BUFF_OPEN_TYPE.LEVEL_UP);
+            return true;
+        }
+
+        public void TriggerChooseBuffs(BUFF_OPEN_TYPE openType)
+        {
             if (_isSelectingBuffs)
             {
-                _choosesLeft++;
-                return true;
+                _choosesLeft.Add(openType);
+                return;
             }
 
             if (ManagerPause.IsPaused())
             {
                 _middleOfChoosing = true;
-                return true;
+                return;
             }
 
-            OnChooseBuffs();
-            return true;
-        }
-
-        private void OnChooseBuffs()
-        {
             _isSelectingBuffs = true;
-            ManagerUI.Instance.OpenPage(PAGE_TYPE.CHOOSE_BUFFS);
-            Events.OnBuffCardsOpen.Invoke();
+
+            if(openType == BUFF_OPEN_TYPE.CHEST_OPEN) ManagerUI.Instance.OpenPage(PAGE_TYPE.CHEST_OPEN);
+            else ManagerUI.Instance.OpenPage(PAGE_TYPE.CHOOSE_BUFFS);
+
+            Events.OnBuffCardsOpen.Invoke(openType);
             _middleOfChoosing = true;
+            _currentOpenType = openType;
         }
 
         private void CloseChooseBuffs()
@@ -193,6 +191,7 @@ namespace Game.BuffSystem
             ManagerUI.Instance.ClosePage(PAGE_TYPE.CHOOSE_BUFFS);
             ManagerPause.RemovePause(PAUSE_REASON.BUFF_CARDS);
             _isSelectingBuffs = false;
+            _lastOpenType = _currentOpenType;
         }
 
         public void OnChooseCardsOpen()
@@ -200,24 +199,34 @@ namespace Game.BuffSystem
             ManagerPause.AddPause(PAUSE_REASON.BUFF_CARDS);
         }
 
-        public BuffCard GetRandomBuffCard()
+        public BuffCard GetRandomBuffCard(BUFF_OPEN_TYPE openType = BUFF_OPEN_TYPE.LEVEL_UP)
         {
+            //Debug.Log($"<color=#1db8fb>[ManagerBuffs]</color> Getting random buff card for open type: {openType}");
+            switch (openType)
+            {
+                case BUFF_OPEN_TYPE.CHEST_OPEN:
+                    // Implement logic for chest open
+                    break;
+                case BUFF_OPEN_TYPE.SCROLL_OPEN:
+                    return GetSkillBuffCard();
+                case BUFF_OPEN_TYPE.LEVEL_UP:
+                default:
+                    break;
+            }
             if (Random.Range(0, 100) < _chanceToGetPlayerBuff)
             {
-                BuffCard_PlayerBuff buffCard_PlayerBuff = new BuffCard_PlayerBuff();
-                bool found = buffCard_PlayerBuff.Roll();
+                BuffCard playerBuff = GetPlayerBuffCard();
 
-                if (found)
-                    return buffCard_PlayerBuff;
+                if (playerBuff != null)
+                    return playerBuff;
             }
 
             if (Random.Range(0, 100) < _chanceToGetSkill)
             {
-                BuffCard_Skill buffcard_skill = new BuffCard_Skill();
-                bool found = buffcard_skill.Roll();
+                BuffCard skillBuff = GetSkillBuffCard();
 
-                if (found)
-                    return buffcard_skill;
+                if (skillBuff != null)
+                    return skillBuff;
             }
 
             BuffCard_SkillBuff buffCard = new BuffCard_SkillBuff();
@@ -225,21 +234,115 @@ namespace Game.BuffSystem
             return buffCard;
         }
 
-        public List<BuffCard> GetBuffCards(int count)
+        public BuffCard GetPlayerBuffCard()
+        {
+            BuffCard_PlayerBuff buffCard_PlayerBuff = new BuffCard_PlayerBuff();
+            bool found = buffCard_PlayerBuff.Roll();
+
+            if (found)
+                return buffCard_PlayerBuff;
+
+            return null;
+        }
+
+        public BuffCard GetSkillBuffCard()
+        {
+            BuffCard_Skill buffcard_skill = new BuffCard_Skill();
+            bool found = buffcard_skill.Roll();
+
+            if (found)
+                return buffcard_skill;
+
+            return null;
+        }
+
+        // public List<BuffCard> GetBuffCards(int count, BUFF_OPEN_TYPE openType = BUFF_OPEN_TYPE.LEVEL_UP)
+        // {
+        //     if (_buffCards.Count > 0)
+        //         return _buffCards;
+
+        //     ClearRolledModifiers();
+        //     _buffCards.Clear();
+        //     for (int i = 0; i < count; i++)
+        //     {
+        //         BuffCard buffCard = GetRandomBuffCard(openType);
+        //         if (buffCard.BuffType == BUFF_CARD_TYPE.SKILL)
+        //         {
+        //             for(int j = 0; j < _buffCards.Count; j++)
+        //             {
+        //                 if(_buffCards[j].BuffType == BUFF_CARD_TYPE.SKILL
+        //                 && _buffCards[j] is BuffCard_Skill existingSkillCard && buffCard is BuffCard_Skill newSkillCard
+        //                 && existingSkillCard.SkillDefinition.SkillName == newSkillCard.SkillDefinition.SkillName)
+        //                 {
+        //                     // already have skill, get another buff
+        //                     buffCard = GetRandomBuffCard(openType);
+        //                     j = -1; // restart loop
+        //                 }
+        //             }
+        //         }
+        //         _buffCards.Add(buffCard);
+        //     }
+        //     return _buffCards;
+        // }
+
+        /// <summary>
+        /// Get a page of buff cards. Safely avoids infinite loops and duplicate skills.
+        /// </summary>
+        public List<BuffCard> GetBuffCards(int count, BUFF_OPEN_TYPE openType = BUFF_OPEN_TYPE.LEVEL_UP)
         {
             if (_buffCards.Count > 0)
                 return _buffCards;
 
             ClearRolledModifiers();
             _buffCards.Clear();
+
+            const int MAX_ATTEMPTS_PER_SLOT = 100;
+
+            HashSet<SKILL_NAME> seenSkills = new ();
+
             for (int i = 0; i < count; i++)
             {
-                BuffCard buffCard = GetRandomBuffCard();
-                _buffCards.Add(buffCard);
+                BuffCard chosen = null;
+                int attempts = 0;
+
+                while (attempts++ < MAX_ATTEMPTS_PER_SLOT)
+                {
+                    var candidate = GetRandomBuffCard(openType);
+                    if (candidate == null)
+                    {
+                        continue;
+                    }
+
+                    if (candidate.BuffType == BUFF_CARD_TYPE.SKILL &&
+                        candidate is BuffCard_Skill newSkill)
+                    {
+                        var sName = newSkill.SkillDefinition.SkillName;
+                        if (seenSkills.Contains(sName))
+                        {
+                            continue;
+                        }
+
+                        seenSkills.Add(sName);
+                        chosen = candidate;
+                        break;
+                    }
+
+                    chosen = candidate;
+                    break;
+                }
+
+                if (chosen == null)
+                {
+                    continue;
+                }
+
+                _buffCards.Add(chosen);
             }
+
             return _buffCards;
         }
-      
+
+
         public List<BuffDefinition> GetBuffDefinitions()
         {
             return _buffDefinitions;
@@ -308,17 +411,19 @@ namespace Game.BuffSystem
 
         public void CheckChoosesLeft()
         {
-            if (_choosesLeft-- <= 0)
+            if (_choosesLeft.Count == 0)
             {
                 _isSelectingBuffs = false;
                 ManagerUI.Instance.ClosePage(PAGE_TYPE.CHOOSE_BUFFS);
                 ManagerPause.RemovePause(PAUSE_REASON.BUFF_CARDS);
 
-                _choosesLeft = 0;
+                //_choosesLeft.Clear();
             }
             else
             {
-                OnChooseBuffs();
+                BUFF_OPEN_TYPE openType = _choosesLeft[0];
+                _choosesLeft.RemoveAt(0);
+                TriggerChooseBuffs(openType);
             }
         }
 

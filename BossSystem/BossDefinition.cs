@@ -10,12 +10,7 @@ public sealed class BossDefinition : ScriptableObject
     [Title("Arena")][SerializeField] private BossArenaDefinition _arena;
 
 
-    [Title("Phases in order")]
-    [SerializeField]
-    private BossPhaseDefinition[] _phases;
-
     public GameObject Prefab => _mobData.Prefab;
     public BossArenaDefinition Arena => _arena;
-    public BossPhaseDefinition[] Phases => _phases;
     public MobData MobData => _mobData;
 }

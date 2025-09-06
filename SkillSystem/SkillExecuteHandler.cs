@@ -14,6 +14,7 @@ namespace Game.SkillSystem
 
         [SerializeField] private LinkedList<IFixedUpdate> _skillsFixedUpdate = new();
         [SerializeField] private LinkedList<ChargeEntry> _chargingSkills = new();
+        [SerializeField] private LinkedList<AnimEntry> _animatingSkills = new();
 
         private Dictionary<int, ISkillButtonUp> _waitButtonUp = new();
 
@@ -27,6 +28,19 @@ namespace Game.SkillSystem
             public ChargeEntry(ISkill s, IChargeable c, float t)
             {
                 Skill = s; Charge = c; TimeLeft = t; TotalTime = t;
+            }
+        }
+
+        private sealed class AnimEntry
+        {
+            public ISkill Skill;
+            public AbilityAnimation Anim;
+            public float TimeLeft;
+            public float TotalTime;
+
+            public AnimEntry(ISkill s, AbilityAnimation a, float t)
+            {
+                Skill = s; Anim = a; TimeLeft = t; TotalTime = t;
             }
         }
 
@@ -44,6 +58,7 @@ namespace Game.SkillSystem
         public void UnityUpdate()
         {
             UpdateExpiringSkills();
+            UpdateAnimatingSkills();
             UpdateChargingSkills();
             UpdateActiveSkills();
             UpdateCooldownSkills();
@@ -111,6 +126,15 @@ namespace Game.SkillSystem
                 }
                 node3 = next;
             }
+
+            LinkedListNode<AnimEntry> node4 = _animatingSkills.First;
+            while (node4 != null)
+            {
+                LinkedListNode<AnimEntry> next = node4.Next;
+                if (node4.Value.Skill.GetInstanceID() == skill.GetInstanceID())
+                    _animatingSkills.Remove(node4);
+                node4 = next;
+            }
         }
 
         #region Skill Execute Logic
@@ -175,6 +199,17 @@ namespace Game.SkillSystem
 
             if (skill is ICooldown cooldown && cooldown.GetCurrentCooldown() > 0f) return false;
 
+            AbilityAnimation anim = skill.GetAbilityAnimation();
+            if (anim != null && anim.TriggerDelay > 0f)
+            {
+                if (IsSkillAnimating(skill)) return false; // already gating this instance
+
+                skill.OnAbilityAnimationStart();
+                _animatingSkills.AddLast(new AnimEntry(skill, anim, anim.TriggerDelay));
+
+                return true; // accepted; will proceed after delay
+            }
+
             if (skill is IChargeable chargeable)
             {
                 if (IsSkillCharging(skill)) return false; // already charging this instance
@@ -205,6 +240,13 @@ namespace Game.SkillSystem
                 return false;
             }
 
+            if (skill is ICooldown)
+            {
+                AddToCooldownList((ICooldown)skill);
+            }
+
+            if(!skill.GetLaunchUser().activeInHierarchy) return false;
+
             skill.StartSkill();
 
             if (skill is Ability) ManagerSkills.Instance.OnAbilityStarted(skill);
@@ -221,10 +263,7 @@ namespace Game.SkillSystem
             //     return true;
             // }
 
-            if (skill is ICooldown)
-            {
-                AddToCooldownList((ICooldown)skill);
-            }
+            
 
             if (skill is IFixedUpdate fixedUpdateSkill)
             {
@@ -311,6 +350,53 @@ namespace Game.SkillSystem
             }
         }
 
+        private void UpdateAnimatingSkills()
+        {
+            LinkedListNode<AnimEntry> node = _animatingSkills.First;
+            while (node != null)
+            {
+                LinkedListNode<AnimEntry> next = node.Next;
+                AnimEntry entry = node.Value;
+
+                entry.TimeLeft -= Time.deltaTime;
+
+                // (Optional progress calc if you want to drive VFX/UI)
+                float denom = (entry.TotalTime <= 0f) ? 1f : entry.TotalTime;
+                float progress = (entry.TotalTime - Mathf.Max(entry.TimeLeft, 0f)) / denom;
+                if (progress < 0f) progress = 0f; else if (progress > 1f) progress = 1f;
+                // You could notify here via an optional interface if desired.
+
+                if (entry.TimeLeft <= 0f)
+                {
+                    _animatingSkills.Remove(node);
+
+                    // After animation gate completes, honor charge gate if present; else activate.
+                    if (entry.Skill is IChargeable ch)
+                    {
+                        float t = ch.GetChargeTime();
+                        if (t <= 0f)
+                        {
+                            ch.OnChargingStart();
+                            ch.OnChargingUpdate(1f);
+                            ch.OnChargingEnd();
+                            ActivateSkill(entry.Skill);
+                        }
+                        else
+                        {
+                            ch.OnChargingStart();
+                            _chargingSkills.AddLast(new ChargeEntry(entry.Skill, ch, t));
+                        }
+                    }
+                    else
+                    {
+                        ActivateSkill(entry.Skill);
+                    }
+                }
+
+                node = next;
+            }
+        }
+
         private void AddToCooldownList(ICooldown cooldown)
         {
             //Debug.Log($"Adding skill {(cooldown is IHasName ? ((IHasName)cooldown).GetName() +" ": "")} to cooldown list. Cooldown: {cooldown.GetCooldown()}");
@@ -379,6 +465,17 @@ namespace Game.SkillSystem
         private bool IsSkillCharging(ISkill skill)
         {
             LinkedListNode<ChargeEntry> node = _chargingSkills.First;
+            while (node != null)
+            {
+                if (node.Value.Skill == skill) return true;
+                node = node.Next;
+            }
+            return false;
+        }
+
+        private bool IsSkillAnimating(ISkill skill)
+        {
+            LinkedListNode<AnimEntry> node = _animatingSkills.First;
             while (node != null)
             {
                 if (node.Value.Skill == skill) return true;
@@ -476,6 +573,18 @@ namespace Game.SkillSystem
                 cnode = next;
             }
 
+            LinkedListNode<AnimEntry> anode = _animatingSkills.First;   // << NEW
+            while (anode != null)
+            {
+                LinkedListNode<AnimEntry> next = anode.Next;
+                if (anode.Value.Skill is IManualEnd me && me == manualEndSkill)
+                {
+                    _animatingSkills.Remove(anode);
+                    return;
+                }
+                anode = next;
+            }
+
             if (!found)
             {
                 if (manualEndSkill is ISkill skill)
@@ -539,6 +648,18 @@ namespace Game.SkillSystem
                 cnode = next;
             }
 
+            LinkedListNode<AnimEntry> anode = _animatingSkills.First;   // << NEW
+            while (anode != null)
+            {
+                LinkedListNode<AnimEntry> next = anode.Next;
+                if (anode.Value.Skill == endSkill)
+                {
+                    _animatingSkills.Remove(anode);
+                    return;
+                }
+                anode = next;
+            }
+
             if (!found)
             {
                 Debug.LogWarning($"END Skill {endSkill.GetSkillName()} NOT found in active, expiring, or charging lists.");
@@ -588,6 +709,8 @@ namespace Game.SkillSystem
             _expiringSkills.Clear();
 
             _cooldownSkills.Clear();
+            _chargingSkills.Clear();
+            _animatingSkills.Clear();
 
             _waitButtonUp.Clear();
         }

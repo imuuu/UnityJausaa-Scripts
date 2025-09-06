@@ -9,6 +9,7 @@ namespace Game.SkillSystem
         private int _instanceID = -1;
         public string Name { get; set; }
         private GameObject _user;
+        private GameObject _launchUser;
         private OWNER_TYPE _ownerType;
         private ISkill _rootSkill;
 
@@ -23,6 +24,8 @@ namespace Game.SkillSystem
 
         private int _skillSlot; //player only
         protected bool _isAwaken = false;
+
+        private AbilityAnimation _abilityAnimation;
 
         public virtual void AwakeSkill()
         {
@@ -56,8 +59,14 @@ namespace Game.SkillSystem
             return this is IRecastSkill && _ownerType == OWNER_TYPE.PLAYER;
         }
 
+        public abstract void OnAbilityAnimationStart();
+
         #region Getters and Setters
 
+        /// <summary>
+        /// Returns the user of the ability. 
+        /// </summary>
+        /// <returns></returns>
         public GameObject GetUser()
         {
             return _user;
@@ -68,14 +77,35 @@ namespace Game.SkillSystem
             _user = user;
         }
 
+        /// <summary>
+        /// Returns the launch user of the ability. If not set, returns the user.
+        /// </summary>
+        /// <returns></returns>
+        public GameObject GetLaunchUser()
+        {
+            if (_launchUser != null)
+                return _launchUser;
+            return _user;
+        }
+
+        public void SetLaunchUser(GameObject launchUser)
+        {
+            _launchUser = launchUser;
+        }
+
         public GameObject GetGameObject()
         {
-            return _user;
+            return GetLaunchUser();
         }
 
         public IOwner GetRootOwner()
         {
             return this;
+        }
+
+        public AbilityAnimation GetAbilityAnimation()
+        {
+            return _abilityAnimation;
         }
 
         public OWNER_TYPE GetOwnerType()

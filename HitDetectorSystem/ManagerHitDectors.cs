@@ -47,7 +47,7 @@ namespace Game.HitDetectorSystem
             if (_layersInitialized) return;
             _layersInitialized = true;
 
-            HitLayerMask = LayerMask.GetMask("Enemy", "Wall", "Obstacle", "Player");
+            HitLayerMask = LayerMask.GetMask("Enemy", "Wall", "Obstacle", "Player", "SnakeSegments");
             ENEMY_LAYER = LayerMask.NameToLayer("Enemy");
             WALL_LAYER = LayerMask.NameToLayer("Wall");
             OBSTACLE_LAYER = LayerMask.NameToLayer("Obstacle");

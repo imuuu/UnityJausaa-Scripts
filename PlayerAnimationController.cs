@@ -7,19 +7,20 @@ public sealed class PlayerAnimationController : MonoBehaviour
 {
     private enum STATE { Locomotion, RunStop, Landing, Jump, Death }
 
+    private const int OVERLAY_LAYER = 1; // one-shots (RunStop / Landing / Jump) live here
+
     [Header("References")]
     [SerializeField] private PlayerMovement _playerMovement;
     [SerializeField] private AnimancerComponent _animancer;
-    [SerializeField] private NamedAnimancerComponent _namedComponents;
 
-    [Header("Anim Names")]
-    private string _keyIdle = "Kairos_Idle";
-    private string _keyWalk = "Kairos_Walk";
-    private string _keyRun = "Kairos_Running";
-    private string _keyRunStop = "Kairos_RunStop";
-    private string _keyLanding = "Kairos_Landing";
-    private string _keyJumpToPortal = "Kairos_JumpToPortal";
-    private string _keyDeath = "Kairos_Death";
+    [Header("Animation Clips")]
+    [SerializeField] private AnimationClip _clipIdle;
+    [SerializeField] private AnimationClip _clipWalk;
+    [SerializeField] private AnimationClip _clipRun;
+    [SerializeField] private AnimationClip _clipRunStop;
+    [SerializeField] private AnimationClip _clipLanding;
+    [SerializeField] private AnimationClip _clipJumpToPortal;
+    [SerializeField] private AnimationClip _clipDeath;
 
     [Header("Settings")]
     [SerializeField, Min(0f)] private float _fadeDuration = 0.25f;
@@ -35,25 +36,29 @@ public sealed class PlayerAnimationController : MonoBehaviour
     [SerializeField] private UnityEvent _onPlayerDeath;
     [SerializeField] private UnityEvent _onPlayerRespawn;
     [SerializeField] private UnityEvent _onPlayerLanding;
-    [SerializeField] private UnityEvent _onPortalJumpToToxic; // new
-    [SerializeField] private UnityEvent _onPortalJump;        // new
+    [SerializeField] private UnityEvent _onPortalJumpToToxic;
+    [SerializeField] private UnityEvent _onPortalJump;
 
-    // --- Runtime state ---
+    // Runtime state
     private STATE _state = STATE.Locomotion;
-
     private float _previousSpeed;
     private bool _isDead;
-
     private bool _hasPlayedLandingAnimation;
     private bool _landingEffectPlayed;
 
-    // active Animancer states
+    // Active Animancer states (for convenience checks)
     private AnimancerState _runStopState;
     private AnimancerState _landingState;
     private AnimancerState _jumpState;
     private AnimancerState _deathState;
 
     // --------------------------- Unity lifecycle ---------------------------
+    private void Awake()
+    {
+        // Ensure overlay layer starts disabled.
+        _animancer.Layers[OVERLAY_LAYER].Weight = 0f;
+    }
+
     private void OnEnable()
     {
         Events.OnPlayerDeath.AddListener(OnPlayerDeathListener);
@@ -98,51 +103,85 @@ public sealed class PlayerAnimationController : MonoBehaviour
         _previousSpeed = _playerMovement != null ? _playerMovement.CurrentSpeed : 0f;
     }
 
+    // --------------------------- Helpers ---------------------------
+    private AnimancerState PlayBase(AnimationClip clip, float fade)
+    {
+        if (clip == null)
+        {
+            Debug.LogError("[Animancer] Missing AnimationClip reference.", this);
+            return null;
+        }
+        return _animancer.Play(clip, fade);
+    }
+
+    private AnimancerState PlayOverlay(AnimationClip clip, float fade)
+    {
+        if (clip == null)
+        {
+            Debug.LogError("[Animancer] Missing Overlay AnimationClip reference.", this);
+            return null;
+        }
+
+        var layer = _animancer.Layers[OVERLAY_LAYER];
+        var s = layer.Play(clip);             // play on overlay layer
+        layer.StartFade(1f, fade);            // fade the layer in (recommended vs. fading state)
+        return s;
+    }
+
+    private void FadeOutOverlay(float fade) =>
+        _animancer.Layers[OVERLAY_LAYER].StartFade(0f, fade);
+
     // --------------------------- State ticks ---------------------------
     private void TickLocomotion()
     {
-        _animancer.Animator.applyRootMotion = false;
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false;
+
         if (_playerMovement != null) _playerMovement._isPerformingAction = false;
 
         float speed = _playerMovement != null ? _playerMovement.CurrentSpeed : 0f;
 
         // RunStop trigger when dropping under walk threshold
-        if (_keyRunStop.Length != 0 && speed < _walkThreshold && _previousSpeed >= _walkThreshold)
+        if (_clipRunStop != null && speed < _walkThreshold && _previousSpeed >= _walkThreshold)
         {
             StartRunStop();
             return;
         }
 
-        // Locomotion blend
-        if (_keyRun.Length != 0 && speed >= _runThreshold)
+        // Locomotion blend on base layer (layer 0)
+        if (_clipRun != null && speed >= _runThreshold)
         {
-            AnimancerState state = _namedComponents.TryPlay(_keyRun, _fadeDuration);
-            state.Speed = Mathf.Clamp(speed / _playerMovementSpeedReference, 0.1f, 2f);
+            var state = PlayBase(_clipRun, _fadeDuration);
+            if (state != null)
+                state.Speed = Mathf.Clamp(speed / _playerMovementSpeedReference, 0.1f, 2f);
         }
-        else if (_keyWalk.Length != 0 && speed >= _walkThreshold)
+        else if (_clipWalk != null && speed >= _walkThreshold)
         {
-            AnimancerState state = _namedComponents.TryPlay(_keyWalk, _fadeDuration);
-            state.Speed = Mathf.Clamp(speed / (_playerMovementSpeedReference * 0.5f), 0.1f, 2f);
+            var state = PlayBase(_clipWalk, _fadeDuration);
+            if (state != null)
+                state.Speed = Mathf.Clamp(speed / (_playerMovementSpeedReference * 0.5f), 0.1f, 2f);
         }
-        else if (_keyIdle.Length != 0)
+        else if (_clipIdle != null)
         {
-            AnimancerState state = _namedComponents.TryPlay(_keyIdle, _fadeDuration);
-            state.Speed = 1f;
+            var state = PlayBase(_clipIdle, _fadeDuration);
+            if (state != null) state.Speed = 1f;
         }
     }
 
     private void TickRunStop()
     {
+        // If overlay state finished naturally, return to locomotion
         if (_runStopState == null || !_runStopState.IsPlaying)
         {
             _state = STATE.Locomotion;
             return;
         }
 
+        // If player started moving again, fade out overlay layer immediately.
         float speed = _playerMovement != null ? _playerMovement.CurrentSpeed : 0f;
         if (speed >= _walkThreshold)
         {
-            _runStopState.Stop();
+            FadeOutOverlay(_fadeDuration);
             _state = STATE.Locomotion;
         }
     }
@@ -152,8 +191,11 @@ public sealed class PlayerAnimationController : MonoBehaviour
         if (_landingState == null || !_landingState.IsPlaying)
         {
             _landingState = null;
-            _animancer.Animator.applyRootMotion = false;
+            if (_animancer != null && _animancer.Animator != null)
+                _animancer.Animator.applyRootMotion = false;
             if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+
+            FadeOutOverlay(_fadeDuration);
             _state = STATE.Locomotion;
         }
     }
@@ -163,8 +205,11 @@ public sealed class PlayerAnimationController : MonoBehaviour
         if (_jumpState == null || !_jumpState.IsPlaying)
         {
             _jumpState = null;
-            _animancer.Animator.applyRootMotion = false;
+            if (_animancer != null && _animancer.Animator != null)
+                _animancer.Animator.applyRootMotion = false;
             if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+
+            FadeOutOverlay(_fadeDuration);
             _state = STATE.Locomotion;
         }
     }
@@ -173,12 +218,16 @@ public sealed class PlayerAnimationController : MonoBehaviour
     private void StartRunStop()
     {
         _state = STATE.RunStop;
-        _animancer.Animator.applyRootMotion = false;
+
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false;
         if (_playerMovement != null) _playerMovement._isPerformingAction = false;
 
-        _runStopState = _namedComponents.TryPlay(_keyRunStop, _fadeDuration);
-        _runStopState.Speed = 1f;
-        if (_runStopState.Events(this, out AnimancerEvent.Sequence ev)) ev.OnEnd = OnRunStopEnd; // cached method, no alloc
+        _runStopState = PlayOverlay(_clipRunStop, _fadeDuration);
+        if (_runStopState != null && _runStopState.Events(this, out var ev))
+            ev.OnEnd = OnRunStopEnd;
+        else
+            _state = STATE.Locomotion;
     }
 
     public void StartLanding()
@@ -188,24 +237,44 @@ public sealed class PlayerAnimationController : MonoBehaviour
         if (_landingEffectObject != null) _landingEffectObject.SetActive(false);
 
         if (_playerMovement != null) _playerMovement._isPerformingAction = true;
-        _animancer.Animator.applyRootMotion = true;
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = true;
 
-        _landingState = _namedComponents.TryPlay(_keyLanding, _fadeDuration);
-        if (_landingState.Events(this, out AnimancerEvent.Sequence ev)) ev.OnEnd = OnLandingEnd;
+        _landingState = PlayOverlay(_clipLanding, _fadeDuration);
+        if (_landingState != null && _landingState.Events(this, out var ev))
+            ev.OnEnd = OnLandingEnd;
+        else
+        {
+            if (_animancer != null && _animancer.Animator != null)
+                _animancer.Animator.applyRootMotion = false;
+            if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+            FadeOutOverlay(_fadeDuration);
+            _state = STATE.Locomotion;
+        }
     }
 
     public void StartJump()
     {
         _state = STATE.Jump;
-        if (_playerMovement != null) _playerMovement._isPerformingAction = true;
-        _animancer.Animator.applyRootMotion = true;
 
-        // fire portal jump event when starting jump in Lobby (matches old behavior)
+        if (_playerMovement != null) _playerMovement._isPerformingAction = true;
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = true;
+
         if (SceneLoader.GetCurrentScene() == SCENE_NAME.Lobby)
             _onPortalJump?.Invoke();
 
-        _jumpState = _namedComponents.TryPlay(_keyJumpToPortal, _fadeDuration);
-        if (_jumpState.Events(this, out AnimancerEvent.Sequence ev)) ev.OnEnd = OnJumpEnd;
+        _jumpState = PlayOverlay(_clipJumpToPortal, _fadeDuration);
+        if (_jumpState != null && _jumpState.Events(this, out var ev))
+            ev.OnEnd = OnJumpEnd;
+        else
+        {
+            if (_animancer != null && _animancer.Animator != null)
+                _animancer.Animator.applyRootMotion = false;
+            if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+            FadeOutOverlay(_fadeDuration);
+            _state = STATE.Locomotion;
+        }
     }
 
     private void StartDeath()
@@ -219,13 +288,21 @@ public sealed class PlayerAnimationController : MonoBehaviour
             _playerMovement.enabled = false;
         }
 
+        // Stop everything and play Death on base layer.
         _animancer.Stop();
-        _animancer.Animator.applyRootMotion = false; // set true if your death clip has RM you want
+        FadeOutOverlay(0f);
+
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false; // set true if your death clip uses RM
 
         _state = STATE.Death;
-        _deathState = _namedComponents.TryPlay(_keyDeath, _fadeDuration);
-        _deathState.Speed = 1f;
-        if (_deathState.Events(this, out AnimancerEvent.Sequence ev)) ev.OnEnd = OnDeathEnd;
+        _deathState = PlayBase(_clipDeath, _fadeDuration);
+        if (_deathState != null)
+        {
+            _deathState.Speed = 1f;
+            if (_deathState.Events(this, out var ev))
+                ev.OnEnd = OnDeathEnd;
+        }
     }
 
     // --------------------------- External calls ---------------------------
@@ -236,7 +313,7 @@ public sealed class PlayerAnimationController : MonoBehaviour
         if (scene == SCENE_NAME.Lobby)
         {
             ResetAfterDeath();
-            _hasPlayedLandingAnimation = false; // ensure landing can play next ToxicLevel
+            _hasPlayedLandingAnimation = false;
         }
         else if (scene == SCENE_NAME.ToxicLevel)
         {
@@ -245,39 +322,55 @@ public sealed class PlayerAnimationController : MonoBehaviour
         return true;
     }
 
-    // --------------------------- Event callbacks (no lambdas) ---------------------------
-    private void OnRunStopEnd() { _state = STATE.Locomotion; }
+    // --------------------------- Event callbacks ---------------------------
+    private void OnRunStopEnd()
+    {
+        FadeOutOverlay(_fadeDuration);
+        _state = STATE.Locomotion;
+    }
 
     private void OnLandingEnd()
     {
         _landingState = null;
-        _animancer.Animator.applyRootMotion = false;
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false;
         if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+
+        FadeOutOverlay(_fadeDuration);
         _state = STATE.Locomotion;
     }
 
     private void OnJumpEnd()
     {
         _jumpState = null;
-        _animancer.Animator.applyRootMotion = false;
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false;
         if (_playerMovement != null) _playerMovement._isPerformingAction = false;
+
+        FadeOutOverlay(_fadeDuration);
         _state = STATE.Locomotion;
     }
 
     private void OnDeathEnd()
     {
-        _deathState.Time = _deathState.Length; // freeze last frame
-        _deathState.Speed = 0f;
+        if (_deathState != null)
+        {
+            _deathState.Time = _deathState.Length; // freeze last frame
+            _deathState.Speed = 0f;
+        }
     }
 
     // --------------------------- Public helpers ---------------------------
     private void PlayDeathAnimation() { if (!_isDead) StartDeath(); }
 
-    private void PlayLandingEffects() { if (_landingEffectObject != null) _landingEffectObject.SetActive(true); }
+    private void PlayLandingEffects()
+    {
+        if (_landingEffectObject != null) _landingEffectObject.SetActive(true);
+    }
 
     private void ResetAfterDeath()
     {
-        _deathState?.Stop();
+        _deathState?.StartFade(0f, _fadeDuration);
         _landingState = null;
         _runStopState = null;
         _jumpState = null;
@@ -296,14 +389,15 @@ public sealed class PlayerAnimationController : MonoBehaviour
         _state = STATE.Locomotion;
 
         _animancer.Stop();
-        _animancer.Animator.applyRootMotion = false;
-        _animancer.Animator.Rebind();
-        _animancer.Animator.Update(0f);
+        FadeOutOverlay(0f);
 
-        if (_keyIdle.Length != 0)
+        if (_animancer != null && _animancer.Animator != null)
+            _animancer.Animator.applyRootMotion = false;
+
+        if (_clipIdle != null)
         {
-            AnimancerState s = _namedComponents.TryPlay(_keyIdle, _fadeDuration);
-            s.Speed = 1f;
+            var s = PlayBase(_clipIdle, _fadeDuration);
+            if (s != null) s.Speed = 1f;
         }
 
         _onPlayerRespawn?.Invoke();

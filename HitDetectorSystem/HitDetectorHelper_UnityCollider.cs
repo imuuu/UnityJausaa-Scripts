@@ -18,6 +18,5 @@ namespace Game.HitDetectorSystem
             _detector.OnTriggerExit(other);
         }
 
-
     }
 }

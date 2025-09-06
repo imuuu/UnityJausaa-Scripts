@@ -1,14 +1,18 @@
+using Game.Extensions;
+using Sirenix.OdinInspector;
 using UnityEngine;
 namespace Game.SkillSystem
 {
     public class AbilityBoss_SpitPoison : AbilityBoss, IRecastSkill
     {
         [SerializeField] private GameObject _poisonPrefab;
+        [SerializeField] private GameObject _vfxSpit;
 
         [Header("Launch Settings")]
         [SerializeField] private float _launchForce = 10f;
         [SerializeField] private float _spreadAngleDegrees = 30f;
         [SerializeField] private float _verticalAngleDegrees = 20f;
+
 
         public override void StartSkill()
         {
@@ -19,6 +23,12 @@ namespace Game.SkillSystem
                 ApplyStatsToReceivers(gameObject);
                 Launch(gameObject);
             });
+
+            SpawnObject(_vfxSpit, (gameObject, count, position, direction) =>
+            {
+
+            });
+
         }
 
         public override void EndSkill()
@@ -30,6 +40,23 @@ namespace Game.SkillSystem
         {
             base.UpdateSkill();
         }
+
+        private void TriggerAnimation()
+        {
+            Transform rootUser = GetLaunchUser().transform;
+
+            AnimationDirector animDirector = rootUser.FindInParents<AnimationDirector>(maxDepth: 10);
+
+            //animDirector.PlayAttackClip(GetAbilityAnimation().AnimationClip, -1);
+            animDirector.TriggerAttack(GetAbilityAnimation().AnimationClip, queueIfBusy: true);
+        }
+
+        public override void OnAbilityAnimationStart()
+        {
+            base.OnAbilityAnimationStart();
+            TriggerAnimation();
+        }
+
 
         private void Launch(GameObject target)
         {

@@ -7,6 +7,7 @@ namespace Game.UI
 {
     public class UI_ChooseBuffsController : MonoBehaviour
     {
+        [SerializeField] private List<BUFF_OPEN_TYPE> _allowedOpenTypes = new();
         [SerializeField] private float _delayBetweenCards = 0.1f;
         [SerializeField] private float _delayBeforeActivate = 1f;
         [SerializeField] private List<UI_ChooseBuffCard> _chooseBuffCardVisuals;
@@ -18,9 +19,11 @@ namespace Game.UI
             Events.OnBuffCardsOpen.AddListener(OnBuffCardsOpen);
         }
 
-        private bool OnBuffCardsOpen()
+        private bool OnBuffCardsOpen(BUFF_OPEN_TYPE openType)
         {
-            Activate();
+            if (!_allowedOpenTypes.Contains(openType)) return true;
+
+            Activate(openType);
             return true;
         }
 
@@ -33,11 +36,11 @@ namespace Game.UI
         }
 
         [Button("Activate")]
-        public void Activate()
+        public void Activate(BUFF_OPEN_TYPE openType)
         {
             Deactivate();
 
-            _buffCards = ManagerBuffs.Instance.GetBuffCards(_chooseBuffCardVisuals.Count);
+            _buffCards = ManagerBuffs.Instance.GetBuffCards(_chooseBuffCardVisuals.Count, openType);
 
             ActionScheduler.CancelActions(gameObject.GetInstanceID());
 

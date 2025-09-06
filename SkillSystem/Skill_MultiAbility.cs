@@ -41,5 +41,10 @@ namespace Game.SkillSystem
         {
             throw new System.NotImplementedException();
         }
+
+        public override void OnAbilityAnimationStart()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

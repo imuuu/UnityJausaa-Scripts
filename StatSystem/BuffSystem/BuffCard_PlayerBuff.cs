@@ -19,7 +19,26 @@ namespace Game.BuffSystem
         public List<Modifier> Modifiers = new();
         public float Probability;
 
-        override public void ApplyBuffToVisual(int index, ChooseBuffCardVisual visual)
+        override public void ApplyBuffToVisual(int index, BuffCardVisual buffVisual)
+        {
+            ChooseBuffCardVisual visual = buffVisual as ChooseBuffCardVisual;
+
+            if (visual != null)
+            {
+                ApplyChooseBuffVisual(index, visual);
+                return;
+            }
+
+            ChestBuffCardVisual chestVisual = buffVisual as ChestBuffCardVisual;
+            if (chestVisual != null)
+            {
+                ApplyChestBuffVisual(index, chestVisual);
+                return;
+            }
+
+        }
+
+        private void ApplyChooseBuffVisual(int index, ChooseBuffCardVisual visual)
         {
             ManagerBuffs manager = ManagerBuffs.Instance;
             manager.SetRollModifierForBuff(index, Modifiers);
@@ -32,7 +51,7 @@ namespace Game.BuffSystem
                 visual.Icon.gameObject.SetActive(true);
                 visual.Icon.SetImage(icon);
             }
-           
+
             visual.TextSkillName.text = PlayerBuffDefinition.PlayerBuffName;
 
             List<Modifier> modifiers = Modifier.CombineModifiers(Modifiers);
@@ -56,7 +75,26 @@ namespace Game.BuffSystem
             }
             else
                 visual.TextModifier3.gameObject.SetActive(false);
+        }
 
+        private void ApplyChestBuffVisual(int index, ChestBuffCardVisual visual)
+        {
+            Sprite icon = ManagerBuffs.Instance.GetStatSystemIcons().PlayerBuffIcon;
+            ManagerBuffs manager = ManagerBuffs.Instance;
+            manager.SetRollModifierForBuff(index, Modifiers);
+            manager.SetRollProbability(index, Probability);
+
+            if (icon != null)
+            {
+                visual.Icon.gameObject.SetActive(true);
+                visual.Icon.SetImage(icon);
+            }
+
+            visual.TextModifier.gameObject.SetActive(true);
+
+            Modifier modifier = Modifiers[0];
+
+            visual.TextModifier.text = PlayerBuffDefinition.GetModifierString(modifier);
         }
 
         override public void OnSelectBuff(int index)

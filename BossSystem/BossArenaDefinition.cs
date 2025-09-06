@@ -4,16 +4,49 @@ using Sirenix.OdinInspector;
 [CreateAssetMenu(menuName = "Bosses/Arena Definition")]
 public sealed class BossArenaDefinition : ScriptableObject
 {
-    [SerializeField] private ARENA_TYPE _type = ARENA_TYPE.CIRCLE;
-    [ShowIf("_type", ARENA_TYPE.CIRCLE)][SerializeField, Min(1f)] private float _radius = 20f;
-    [ShowIf("_type", ARENA_TYPE.POLYGON)][SerializeField] private Vector3[] _points; // user prefers Vector3
+    public ARENA_TYPE Type = ARENA_TYPE.CIRCLE;
+    [ShowIf("Type", ARENA_TYPE.CIRCLE)][Min(1f)] public float CircleRadius = 20f;
+    [ShowIf("Type", ARENA_TYPE.POLYGON)]public Vector3[] PolygonPoints;
 
-    [Title("Bounds")][SerializeField] private OUT_OF_BOUNDS_RULE _rule = OUT_OF_BOUNDS_RULE.Pushback;
-    [SerializeField, Min(0f)] private float _boundsDamagePerSecond = 20f; // used if DamageOverTime
+    [ShowIf("Type", ARENA_TYPE.SQUARE)] public float SquareSize = 20f;
 
-    [Title("VFX")][SerializeField] private GameObject _ringPrefab;
+    [Title("Bounds")][SerializeField] public OUT_OF_BOUNDS_RULE Rule = OUT_OF_BOUNDS_RULE.Pushback;
+    [Min(0f)] public float BoundsDamagePerSecond = 20f; // used if DamageOverTime
 
-    public ARENA_TYPE Type => _type; public float Radius => _radius; public Vector3[] Points => _points;
-    public OUT_OF_BOUNDS_RULE Rule => _rule; public float BoundsDamagePerSecond => _boundsDamagePerSecond;
-    public GameObject RingPrefab => _ringPrefab;
+    public bool TeleportPlayerToArenaEdge = true;
+
+    [BoxGroup("VFX", showLabel: false)]
+    public VFX_TYPE VfxShowType;
+
+    [BoxGroup("VFX", showLabel: false)]
+    public GameObject RingPrefab;
+
+    [BoxGroup("VFX", showLabel: false)]
+    [ShowIf("VfxShowType", VFX_TYPE.MULTIPLE_EFFECTS_ON_CIRCLE)]
+    public int VfxShowCount;
+
+    public enum BOSS_SPAWN_POS
+    {
+        ARENA_CENTER,
+        CUSTOM_LOCAL_OFFSET
+    }
+
+    [Header("Boss Spawn")]
+    [SerializeField] public BOSS_SPAWN_POS BossSpawnPosition = BOSS_SPAWN_POS.ARENA_CENTER;
+
+    // Local offset in the arena's local XZ plane.
+    // Example: (2, 0) spawns 2 units to the arena's +X side.
+    [SerializeField]
+    [ShowIf("BossSpawnPosition", BOSS_SPAWN_POS.CUSTOM_LOCAL_OFFSET)]
+    public Vector2 BossSpawnLocalOffsetXZ = Vector2.zero;
+
+
+
+
+
+    public enum VFX_TYPE
+    {
+        SINGLE_EFFECT,
+        MULTIPLE_EFFECTS_ON_CIRCLE,
+    }
 }

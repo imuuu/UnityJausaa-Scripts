@@ -75,7 +75,7 @@ public class DragAndThrowOnPlane : MonoBehaviour
         // Use mouse button 2 (middle click) for picking up and dragging.
         if (Input.GetMouseButtonDown(_mouseButton))
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(GamepadCursor.CurrentScreenPosition);
             RaycastHit hit;
             if (Physics.Raycast(ray, out hit))
             {
@@ -133,7 +133,7 @@ public class DragAndThrowOnPlane : MonoBehaviour
         {
             if (Input.GetMouseButton(_mouseButton))
             {
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Ray ray = Camera.main.ScreenPointToRay(GamepadCursor.CurrentScreenPosition);
                 float enter;
                 Vector3 currentMouseWorldPos = lastMouseWorldPos;
                 if (dragPlane.Raycast(ray, out enter))

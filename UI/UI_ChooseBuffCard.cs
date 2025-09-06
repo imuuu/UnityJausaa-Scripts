@@ -5,7 +5,7 @@ using UnityEngine;
 public class UI_ChooseBuffCard : MonoBehaviour
 {
     [SerializeField, BoxGroup("Index", showLabel: false)] private int _index;
-    private ChooseBuffCardVisual _visual;
+    private BuffCardVisual _visual;
 
     //private BuffDefinition _buffDefinition;
 
@@ -13,7 +13,7 @@ public class UI_ChooseBuffCard : MonoBehaviour
 
     private void Awake()
     {
-        _visual = GetComponent<ItemView>().Visuals as ChooseBuffCardVisual;
+        _visual = GetComponent<ItemView>().Visuals as BuffCardVisual;
     }
 
     private void Start()

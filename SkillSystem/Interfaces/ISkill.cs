@@ -17,8 +17,14 @@ namespace Game.SkillSystem
         public GameObject GetUser();
         public void SetUser(GameObject user);
 
+        public GameObject GetLaunchUser();
+        public void SetLaunchUser(GameObject launchUser);
+
         public int GetSlot();
         public void SetSlot(int slot);
+
+        public AbilityAnimation GetAbilityAnimation();
+        public void OnAbilityAnimationStart();
         public void AddModifier(Modifier modifier);
 
         public void ClearModifiers();

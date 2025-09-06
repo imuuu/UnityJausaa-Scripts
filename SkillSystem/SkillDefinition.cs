@@ -34,10 +34,16 @@ namespace Game.SkillSystem
 
         //<summary> User that has this skill </summary>
         private GameObject _user;
+        private GameObject _launchUser;
 
         public void SetUser(GameObject user)
         {
             _user = user;
+        }
+
+        public void SetLaunchUser(GameObject launchUser)
+        {
+            _launchUser = launchUser;
         }
 
         public void UpdateAbilityData()
@@ -48,6 +54,7 @@ namespace Game.SkillSystem
             }
 
             _skill.SetUser(_user);
+            _skill.SetLaunchUser(_launchUser);
             _skill.SetSkillName(SkillName);
             _skill.SetInstanceID(GetInstanceID());
             if(_user.TryGetComponent(out IOwner owner))

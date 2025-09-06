@@ -33,6 +33,7 @@ namespace Game.SkillSystem
             _createdAbility = (IAbility)SerializationUtility.CreateCopy(_ability);
             _createdAbility.SetRootSkill(this);
             _createdAbility.SetUser(GetUser());
+            _createdAbility.SetLaunchUser(GetLaunchUser());
 
             if (_createdAbility is IOwner owner)
                 owner.SetOwner(GetOwnerType());
@@ -84,39 +85,39 @@ namespace Game.SkillSystem
             ManagerSkills.Instance.ExecuteSkill(spawnedAbility);
         }
 
-        private void CreateNewAbility()
-        {
-            if (_ability is IDuration duration)
-            {
-                SetDuration(duration.GetDuration());
-            }
+        // private void CreateNewAbility()
+        // {
+        //     if (_ability is IDuration duration)
+        //     {
+        //         SetDuration(duration.GetDuration());
+        //     }
 
-            if (_ability is ICooldown cooldown)
-            {
-                SetCooldown(cooldown.GetCooldown());
-            }
+        //     if (_ability is ICooldown cooldown)
+        //     {
+        //         SetCooldown(cooldown.GetCooldown());
+        //     }
 
-            _createdAbility = (IAbility)SerializationUtility.CreateCopy(_ability);
-            _createdAbility.SetRootSkill(this);
-            _createdAbility.SetUser(GetUser());
+        //     _createdAbility = (IAbility)SerializationUtility.CreateCopy(_ability);
+        //     _createdAbility.SetRootSkill(this);
+        //     _createdAbility.SetUser(GetUser());
 
-            if (_createdAbility is IOwner owner)
-                owner.SetOwner(GetOwnerType());
+        //     if (_createdAbility is IOwner owner)
+        //         owner.SetOwner(GetOwnerType());
 
-            _createdAbility.SetSkillName(GetSkillName());
-            _createdAbility.SetInstanceID(GetInstanceID());
-            _createdAbility.AwakeSkill();
+        //     _createdAbility.SetSkillName(GetSkillName());
+        //     _createdAbility.SetInstanceID(GetInstanceID());
+        //     _createdAbility.AwakeSkill();
 
-            if (_holdModifiers == null)
-                return;
+        //     if (_holdModifiers == null)
+        //         return;
 
-            foreach (Modifier modifier in _holdModifiers)
-            {
-                _createdAbility.AddModifier(modifier);
-            }
+        //     foreach (Modifier modifier in _holdModifiers)
+        //     {
+        //         _createdAbility.AddModifier(modifier);
+        //     }
 
-            _holdModifiers = null;
-        }
+        //     _holdModifiers = null;
+        // }
         public override void EndSkill()
         {
 
@@ -153,6 +154,14 @@ namespace Game.SkillSystem
         public IAbility GetAbility()
         {
             return _ability;
+        }
+
+        public override void OnAbilityAnimationStart()
+        {
+            // if (_createdAbility != null)
+            // {
+            //     _createdAbility.OnAbilityAnimationStart();
+            // }
         }
 
         // public bool IsAbilityPassive()

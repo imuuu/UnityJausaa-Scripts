@@ -5,6 +5,15 @@ namespace Game.Interactable
     [RequireComponent(typeof(Collider))]
     public class InteractableArea : SerializedMonoBehaviour, IInteractable
     {
+        public enum INTERACT_TYPE
+        {
+            BUTTON_PRESS,
+            ON_ENTER,
+        }
+
+        [SerializeField,BoxGroup("Interaction"), PropertySpace(10,10)] private INTERACT_TYPE _interactType = INTERACT_TYPE.BUTTON_PRESS;
+        [SerializeField,BoxGroup("Interaction"), PropertySpace(10,10)] bool  _interactOnce = false;
+
         [InfoBox("Can be null, if set it will show a UI plate when the player is in range")]
         [SerializeField, BoxGroup("UI Interactable Plate")] private GameObject _UI_InteractablePlate;
         [SerializeField, ToggleLeft, BoxGroup("UI Interactable Plate")] private bool _enableCustomLocationUIPlate = false;
@@ -13,11 +22,13 @@ namespace Game.Interactable
         private bool _playerInRange;
 
         private GameObject _interactablePlateInstance;
+        private bool _isLocked = false;
 
         protected virtual void Awake()
         {
             Collider col = GetComponent<Collider>();
             col.isTrigger = true;
+            _isLocked = false;
         }
 
         protected virtual void OnEnable()
@@ -50,6 +61,11 @@ namespace Game.Interactable
         {
             ShowInteractablePlate();
             _playerInRange = true;
+
+            if (_interactType == INTERACT_TYPE.ON_ENTER)
+            {
+                Interact();
+            }
         }
 
         protected virtual void OnExit()
@@ -60,7 +76,7 @@ namespace Game.Interactable
 
         private bool HandleKeyDown()
         {
-            if (_playerInRange)
+            if (_playerInRange && _interactType == INTERACT_TYPE.BUTTON_PRESS)
             {
 #if UNITY_EDITOR
                 Debug.Log($"<color=#1db8fb>[InteractableArea]</color> Interacting {gameObject.name}");
@@ -76,6 +92,10 @@ namespace Game.Interactable
         /// </summary>
         public virtual bool Interact()
         {
+            if (_interactOnce && _isLocked) return false;
+
+            if(_interactOnce) _isLocked = true;
+
             ToggleInteractablePlate();
             return false;
         }
@@ -103,7 +123,11 @@ namespace Game.Interactable
 
         public void ShowInteractablePlate()
         {
-            GetInteractablePlate().SetActive(true);
+            GameObject plate = GetInteractablePlate();
+
+            if (plate == null) return;
+
+            plate.SetActive(true);
         }
 
         public void HideInteractablePlate()

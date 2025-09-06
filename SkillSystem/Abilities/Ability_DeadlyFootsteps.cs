@@ -25,7 +25,7 @@ namespace Game.SkillSystem
             _timer = new SimpleTimer(0.1f, true);
             if (GetOwnerType() == OWNER_TYPE.PLAYER)
             {
-                Player player = GetUser().GetComponent<Player>();
+                Player player = GetLaunchUser().GetComponent<Player>();
                 if (player != null)
                 {
                     _rightFoot = player.GetRightFoot();

@@ -18,8 +18,12 @@ namespace Game.BuffSystem
         public SkillDefinition SkillDefinition;
         public List<Modifier> Modifiers = new();
         public float Probability;
-        override public void ApplyBuffToVisual(int index, ChooseBuffCardVisual visual)
+        override public void ApplyBuffToVisual(int index, BuffCardVisual buffVisual)
         {
+            ChooseBuffCardVisual visual = buffVisual as ChooseBuffCardVisual;
+
+            if (visual == null) return;
+
             ManagerBuffs manager = ManagerBuffs.Instance;
             manager.SetRollModifierForBuff(index, Modifiers);
             manager.SetRollProbability(index, Probability);

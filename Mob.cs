@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class Mob : MonoBehaviour
 {
-    private void OnEnable()
+    protected virtual void OnEnable()
     {
         ActionScheduler.RunWhenTrue(() => ManagerMob.Instance != null, () =>
         {
@@ -10,7 +10,7 @@ public class Mob : MonoBehaviour
         });
     }
 
-    private void OnDisable()
+    protected virtual void OnDisable()
     {
         if(ManagerMob.Instance == null) return;
 

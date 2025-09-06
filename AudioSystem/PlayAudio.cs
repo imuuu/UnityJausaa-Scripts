@@ -60,6 +60,8 @@ public class PlayAudio : MonoBehaviour
 
     public void Play()
     {
+        if(PlaylistController.Instances == null || PlaylistController.Instances.Count == 0) return;
+
         if (_soundCategory == SOUND_CATEGORY.SOUND_GROUP)
         {
             MasterAudio.PlaySoundAndForget(SoundName);

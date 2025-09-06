@@ -25,20 +25,22 @@ public class ManagerButtons : MonoBehaviour
     private Dictionary<KeyCode, KeyEvents> _allKeyEvents = new();
 
     [Title("Skill Keys")]
-    [SerializeField] private List<KeyPlan> SkillPlans = new ();
+    [SerializeField] private List<KeyPlan> SkillPlans = new();
     private Dictionary<KeyCode, string> _skillKeys = new()
     {
     };
 
     [Title("UI_Page Keys (cant add here => add code)")]
-    [ShowInInspector,ReadOnly] // Order matters!
+    [ShowInInspector, ReadOnly] // Order matters!
     private Dictionary<KeyCode, PAGE_TYPE> _uiPageKeys = new()
     {
         { KeyCode.P, PAGE_TYPE.SPELL_BOOK },
         //{ KeyCode.Escape, PAGE_TYPE.PAUSE_MENU}
     };
 
-    
+    private bool _lastVirtualMouse0;
+
+
 
     private void Awake()
     {
@@ -55,10 +57,10 @@ public class ManagerButtons : MonoBehaviour
         InitializeSkillKeys();
         InitializeUIPageKeys();
     }
-    
+
     public void ActivatePause(bool activate)
     {
-        if(SceneLoader.GetCurrentScene() == SCENE_NAME.Lobby)
+        if (SceneLoader.GetCurrentScene() == SCENE_NAME.Lobby)
         {
             Debug.LogWarning("Cannot activate pause in Lobby scene.");
             return;
@@ -91,10 +93,8 @@ public class ManagerButtons : MonoBehaviour
             ActivatePause(!ManagerPause.IsPaused(PAUSE_REASON.PAUSE_MENU));
         }
 
-        if (Input.GetKeyDown(_interactable))
-        {
+        if (Input.GetKeyDown(_interactable) || GamepadCursor.GamepadE_Down)
             Events.OnInteract.Invoke();
-        }
 
         if (Input.GetKeyDown(_esc))
         {
@@ -106,21 +106,23 @@ public class ManagerButtons : MonoBehaviour
             KeyCode key = kvp.Key;
             KeyEvents keyEvents = kvp.Value;
 
-            if (Input.GetKeyDown(key))
-            {
+            // Onko kyseessä "Mouse0" → OR GamepadCursor.GamepadMouse0 mukaan
+            bool virtHeld = (key == KeyCode.Mouse0) && GamepadCursor.GamepadMouse0;
+            bool virtDown = (key == KeyCode.Mouse0) && GamepadCursor.GamepadMouse0 && !_lastVirtualMouse0;
+            bool virtUp = (key == KeyCode.Mouse0) && !GamepadCursor.GamepadMouse0 && _lastVirtualMouse0;
+
+            if (Input.GetKeyDown(key) || virtDown)
                 keyEvents.onKeyDown.Invoke();
-            }
 
-            if (Input.GetKey(key))
-            {
+            if (Input.GetKey(key) || virtHeld)
                 keyEvents.onKeyHold.Invoke();
-            }
 
-            if (Input.GetKeyUp(key))
-            {
+            if (Input.GetKeyUp(key) || virtUp)
                 keyEvents.onKeyUp.Invoke();
-            }
         }
+
+        // päivitä viimeisin virtuaalitila kerran per frame
+        _lastVirtualMouse0 = GamepadCursor.GamepadMouse0;
     }
 
     private void InitializeSkillKeys()
@@ -138,7 +140,7 @@ public class ManagerButtons : MonoBehaviour
 
             AddKeyUpListener(plan.Key, () =>
             {
-                
+
                 return Events.OnSkillButtonUp.Invoke(slot);
             });
 

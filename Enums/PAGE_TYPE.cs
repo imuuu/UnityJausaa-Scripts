@@ -9,5 +9,6 @@ namespace Game.UI
         PAUSE_MENU,
         DIE_MENU,
         PLAYER_UPGRADES,
+        CHEST_OPEN,
     }
 }

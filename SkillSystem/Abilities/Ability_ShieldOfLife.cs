@@ -17,7 +17,7 @@ namespace Game.SkillSystem
                 return;
             }
 
-            IHealth health = GetUser().GetComponent<IHealth>();
+            IHealth health = GetLaunchUser().GetComponent<IHealth>();
             health.AddHealth(heal);
         }
     }

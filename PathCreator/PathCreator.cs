@@ -3,6 +3,10 @@ using System;
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 
 namespace Game.PathSystem
 {
@@ -63,34 +67,17 @@ namespace Game.PathSystem
             _lockedDirection = Vector3.zero;
             _directionSet = false;
         }
-        // public Vector3 GetPoint(int i)
-        // {
-        //     Vector3 p = points[i];
-        //     if (_space == PathSpace.XZ) p = new Vector3(p.x, 0, p.y);
-        //     else if (_space == PathSpace.XY) p = new Vector3(p.x, p.y, 0);
-
-        //     if(_directionSet)
-        //     {
-        //         p = transform.position + _lockedDirection + p;
-        //     } else if (_useTransform)
-        //         p = _applyRotation ? transform.TransformPoint(p) : transform.position + p;
-        //     return p;
-        // }
+       
 
         public Vector3 GetPoint(int i)
         {
-            // 1) fetch your stored control‐point in path‑local coords
             Vector3 localP = points[i];
 
-            // 2) map into the chosen plane
             if (_space == PathSpace.XZ)
                 localP = new Vector3(localP.x, 0f, localP.y);
             else if (_space == PathSpace.XY)
                 localP = new Vector3(localP.x, localP.y, 0f);
 
-            // 3) pick the rotation to apply:
-            //    - if _directionSet: rotate Z+ to _lockedDirection
-            //    - else if using transform: use its rotation (or none)
             Quaternion rot;
             if (_directionSet)
             {
@@ -210,13 +197,13 @@ namespace Game.PathSystem
             if(!ShowGizmos) return;
 
             if (points == null || points.Count < 2) return;
-
+            #if UNITY_EDITOR
             if(ShowHandles)
             {
                 for (int i = 0; i < points.Count; i++)
                 {
                     Vector3 wp = GetPoint(i);
-                    float size = UnityEditor.HandleUtility.GetHandleSize(wp) * 0.2f;
+                    float size = HandleUtility.GetHandleSize(wp) * 0.2f;
                     if (i % 3 == 0)
                     {
                         Gizmos.color = Color.yellow;
@@ -234,7 +221,9 @@ namespace Game.PathSystem
                         Gizmos.DrawCube(wp, Vector3.one * size);
                     }
                 }
+               
             }
+             #endif
 
             if (_drawMode == DrawMode.Linear)
             {

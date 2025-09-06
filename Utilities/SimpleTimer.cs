@@ -78,9 +78,9 @@ namespace Game.Utility
         /// <summary>
         /// Resets the timer to zero and resumes if it was paused.
         /// </summary>
-        public void Reset()
+        public void Reset(float elapsedTime = 0f)
         {
-            ElapsedTime = 0f;
+            ElapsedTime = Mathf.Clamp(elapsedTime, 0f, Duration);
             IsCompleted = false;
             IsPaused = false;
             IsRoundCompleted = false;

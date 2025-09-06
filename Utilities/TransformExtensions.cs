@@ -63,14 +63,14 @@ namespace Game.Extensions
         /// Call buffer.Clear() yourself if you want to reuse it.
         /// VERY SLOW FOR DEEP HIERARCHIES, DO NOT USE IN PERFORMANCE-CRITICAL CODE
         /// </summary>
-        public static void TraverseChildren<T>(this Transform parent, List<T> buffer, bool includeInactive = false, bool includeSelf = false)
+        public static void TraverseChildren<T>(this Transform parent, List<T> buffer, bool includeInactive = false, bool includeSelf = false, bool breakOnFirstMatch = false)
             where T : class
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             if (buffer == null) throw new ArgumentNullException(nameof(buffer));
 
             // Non-recursive DFS to avoid stack overflows on deep hierarchies.
-            var stack = ListPool<Transform>.Get();
+            List<Transform> stack = ListPool<Transform>.Get();
             try
             {
                 if (includeSelf) stack.Add(parent);
@@ -81,7 +81,7 @@ namespace Game.Extensions
                 }
 
                 // Temp component list to avoid per-node array allocations
-                var comps = ListPool<Component>.Get();
+                List<Component> comps = ListPool<Component>.Get();
                 try
                 {
                     while (stack.Count > 0)
@@ -98,10 +98,16 @@ namespace Game.Extensions
                         t.GetComponents(comps); // fills comps with all Component instances on this GameObject
                         for (int i = 0; i < comps.Count; ++i)
                         {
-                            var c = comps[i];
-                            if (c == null) continue; // missing script
+                            Component c = comps[i];
+                            if (c == null) continue;
+
                             if (c is T match)
+                            {
                                 buffer.Add(match);
+
+                                if (breakOnFirstMatch) return;
+                            }
+
                         }
 
                         // Push children
@@ -117,6 +123,161 @@ namespace Game.Extensions
             finally
             {
                 ListPool<Transform>.Return(stack);
+            }
+        }
+
+        /// <summary>
+        /// Walks up the transform’s parent chain and collects components of type <typeparamref name="T"/> into <paramref name="buffer"/>.
+        /// Does NOT clear the buffer (clear it yourself if you reuse it). Non-recursive.
+        /// Supports both Component types and interfaces implemented by Components.
+        /// </summary>
+        /// <param name="start">The transform to start from.</param>
+        /// <param name="buffer">A list to append found components to (not cleared).</param>
+        /// <param name="maxDepth">
+        /// Maximum number of steps to traverse upward (including the starting node if <paramref name="includeSelf"/> is true).
+        /// </param>
+        /// <param name="includeSelf">If true, also checks the starting transform before going to parents.</param>
+        /// <param name="includeInactive">If false, skips inactive GameObjects.</param>
+        /// <param name="breakOnFirstMatch">If true, returns immediately after the first match is added to the buffer.</param>
+        /// <typeparam name="T">Component or interface type to search for.</typeparam>
+        public static void TraverseParents<T>(
+            this Transform start,
+            List<T> buffer,
+            int maxDepth = int.MaxValue,
+            bool includeSelf = true,
+            bool includeInactive = true,
+            bool breakOnFirstMatch = false)
+            where T : class
+        {
+            if (start == null) throw new ArgumentNullException(nameof(start));
+            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+            if (maxDepth <= 0) return;
+
+            bool tIsComponent = typeof(Component).IsAssignableFrom(typeof(T));
+            Type tType = typeof(T);
+
+            List<Component> comps = null;
+            if (!tIsComponent)
+                comps = ListPool<Component>.Get();
+
+            try
+            {
+                Transform current = includeSelf ? start : start.parent;
+                int steps = 0;
+
+                while (current != null && steps < maxDepth)
+                {
+                    if (includeInactive || current.gameObject.activeInHierarchy)
+                    {
+                        if (tIsComponent)
+                        {
+                            if (current.TryGetComponent(tType, out Component c) && c != null)
+                            {
+                                buffer.Add(c as T);
+                                if (breakOnFirstMatch) return;
+                            }
+                        }
+                        else
+                        {
+                            comps!.Clear();
+                            current.GetComponents(comps);
+                            for (int i = 0; i < comps.Count; i++)
+                            {
+                                Component c = comps[i];
+                                if (c != null && c is T match)
+                                {
+                                    buffer.Add(match);
+                                    if (breakOnFirstMatch) return;
+                                }
+                            }
+                        }
+                    }
+
+                    current = current.parent;
+                    steps++;
+                }
+            }
+            finally
+            {
+                if (comps != null)
+                    ListPool<Component>.Return(comps);
+            }
+        }
+
+
+        /// <summary>
+        /// Returns the first component of type <typeparamref name="T"/> found in the transform’s parent chain.
+        /// Fast for runtime lookups. Supports interfaces as well as Components.
+        /// </summary>
+        /// <param name="start">The transform to start from.</param>
+        /// <param name="maxDepth">Maximum number of parent steps to check (including self if <paramref name="includeSelf"/> is true).</param>
+        /// <param name="includeSelf">If true, checks the starting transform before its parents.</param>
+        /// <param name="includeInactive">If false, skips inactive GameObjects.</param>
+        /// <typeparam name="T">Component or interface type to find.</typeparam>
+        /// <returns>The first matching component (or null if none found within <paramref name="maxDepth"/>).</returns>
+
+        public static T FindInParents<T>(
+            this Transform start,
+            int maxDepth = int.MaxValue,
+            bool includeSelf = true,
+            bool includeInactive = true)
+            where T : class
+        {
+            if (start == null) throw new ArgumentNullException(nameof(start));
+            if (maxDepth <= 0) return null;
+
+            bool tIsComponent = typeof(Component).IsAssignableFrom(typeof(T));
+            Type tType = typeof(T);
+
+            if (tIsComponent)
+            {
+                Transform current = includeSelf ? start : start.parent;
+                int steps = 0;
+
+                while (current != null && steps < maxDepth)
+                {
+                    if (includeInactive || current.gameObject.activeInHierarchy)
+                    {
+                        if (current.TryGetComponent(tType, out Component c) && c != null)
+                            return c as T;
+                    }
+                    current = current.parent;
+                    steps++;
+                }
+
+                return null;
+            }
+            else
+            {
+                List<Component> comps = ListPool<Component>.Get();
+                try
+                {
+                    Transform current = includeSelf ? start : start.parent;
+                    int steps = 0;
+
+                    while (current != null && steps < maxDepth)
+                    {
+                        if (includeInactive || current.gameObject.activeInHierarchy)
+                        {
+                            comps.Clear();
+                            current.GetComponents(comps);
+                            for (int i = 0; i < comps.Count; i++)
+                            {
+                                Component c = comps[i];
+                                if (c != null && c is T match)
+                                    return match;
+                            }
+                        }
+                        current = current.parent;
+                        steps++;
+                    }
+
+                    return null;
+                }
+                finally
+                {
+                    ListPool<Component>.Return(comps);
+                }
             }
         }
     }

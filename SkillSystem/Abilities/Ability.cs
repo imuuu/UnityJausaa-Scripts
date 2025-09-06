@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using Game.HitDetectorSystem;
 using Game.PoolSystem;
 using Game.StatSystem;
+using JetBrains.Annotations;
 using Sirenix.OdinInspector;
-using Unity.Entities.UniversalDelegates;
 using UnityEngine;
 
 namespace Game.SkillSystem
@@ -13,6 +13,7 @@ namespace Game.SkillSystem
     {
         private int _instanceID = -1;
         private GameObject _user;
+        private GameObject _launchUser;
         private OWNER_TYPE _ownerType;
         private SKILL_NAME _skillName = SKILL_NAME.NONE;
 
@@ -27,6 +28,14 @@ namespace Game.SkillSystem
         private float _currentDuration;
 
         private bool _isAwaken = false;
+
+        [Title("Ability Animation")]
+        [BoxGroup("Animation")]
+        [SerializeField, ToggleLeft, UsedImplicitly] private bool _enableAnimation = false;
+
+        [SerializeField, ShowIf(nameof(_enableAnimation))]
+        [BoxGroup("Animation")]
+        private AbilityAnimation _abilityAnimation;
         private int _skillSlot; //player only
 
         [Space(10)]
@@ -60,7 +69,7 @@ namespace Game.SkillSystem
             _isAwaken = true;
 
             _dirScratch = new List<Vector3>();
-            _spawnedTracked = new List<GameObject>();
+            _spawnedTracked = new List<List<GameObject>>();
             _spawnedIndices = new List<int>();
             _followTotalCount = 0;
 
@@ -211,7 +220,7 @@ namespace Game.SkillSystem
 
         private Vector3 GetMousePosition()
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(GamepadCursor.CurrentScreenPosition);
 
             if (_groundPlane.Raycast(ray, out float enter))
             {
@@ -223,7 +232,7 @@ namespace Game.SkillSystem
 
         protected Transform GetUserTransform()
         {
-            return GetUser().transform;
+            return GetLaunchUser().transform;
         }
 
         private List<Stat> _tempStatsToReceivers;
@@ -341,7 +350,7 @@ namespace Game.SkillSystem
 
         public bool IsRecastable()
         {
-            return this is IRecastSkill; // && _ownerType == OWNER_TYPE.PLAYER;
+            return this is IRecastSkill && _ownerType == OWNER_TYPE.PLAYER;
         }
 
         public SimpleDamage CreateSimpleDamage(float damage = 0f)
@@ -352,6 +361,12 @@ namespace Game.SkillSystem
                 DamageSourceHelper.GetSourceFromOwner(_ownerType));
             return simpleDamage;
         }
+
+        public virtual void OnAbilityAnimationStart()
+        {
+            // Custom logic for when the ability animation starts
+        }
+
         #region PatternSystem
         [SerializeField]
         protected class SpawnPatternParams
@@ -375,10 +390,10 @@ namespace Game.SkillSystem
         }
 
         private List<Vector3> _dirScratch;
-        private List<GameObject> _spawnedTracked;
+        private List<List<GameObject>> _spawnedTracked;
 
-        private List<int> _spawnedIndices; // pattern-indeksi / slotti kohden
-        private int _followTotalCount;     // viimeisin kokonaismäärä (cone-asteikkoa varten)
+        private List<int> _spawnedIndices;
+        private int _followTotalCount;
 
         private const string ID_BURST_DELAY = "BurstDelay";
 
@@ -426,8 +441,8 @@ namespace Game.SkillSystem
         /// <param name="prefab"></param>
         /// <param name="init"></param>
         protected void SpawnObject(
-        GameObject prefab,
-        System.Action<GameObject, int, Vector3, Vector3> init)
+    GameObject prefab,
+    System.Action<GameObject, int, Vector3, Vector3> init)
         {
             if (prefab == null)
             {
@@ -443,17 +458,26 @@ namespace Game.SkillSystem
             int count = GetProjectileAmount();
             Vector3 baseDir = GetDirection(_direction);
 
-            ForEachSpawnPoint(count, baseDir, (index, direction, pos) =>
-            {
-                int slot = _spawnedTracked.Count;
-                _spawnedTracked.Add(null);
-                _spawnedIndices.Add(index);
-                _followTotalCount = Mathf.Max(_followTotalCount, count);
+            // New independent group for this call
+            int groupIndex = _spawnedTracked.Count;
+            var group = new List<GameObject>(count);
+            _spawnedTracked.Add(group);
 
-                GameObject go = ManagerPrefabPooler.Instance.GetFromPool(prefab, (returned) =>
+            // prefill so indices exist
+            while (group.Count < count) group.Add(null);
+
+            ForEachSpawnPoint(count, baseDir, (patternIndex, direction, pos) =>
+            {
+                int g = groupIndex;              // capture for callback
+                int i = patternIndex;
+
+                GameObject go = ManagerPrefabPooler.Instance.GetFromPool(prefab, returned =>
                 {
-                    if (_spawnedTracked != null && slot < _spawnedTracked.Count && _spawnedTracked[slot] == returned)
-                        _spawnedTracked[slot] = null;
+                    if (_spawnedTracked == null) return;
+                    if (g >= _spawnedTracked.Count) return;
+                    var grp = _spawnedTracked[g];
+                    if (grp == null || i >= grp.Count) return;
+                    if (grp[i] == returned) grp[i] = null;
                 });
 
                 if (go == null)
@@ -462,34 +486,39 @@ namespace Game.SkillSystem
                     return;
                 }
 
-                _spawnedTracked[slot] = go;
+                _spawnedTracked[g][i] = go;
 
-                IOwner ownerComp = go.GetComponent<IOwner>();
-                if (ownerComp != null) ownerComp.SetOwner(GetOwnerType());
+                if (go.TryGetComponent<IOwner>(out var owner))
+                    owner.SetOwner(GetOwnerType());
 
                 go.transform.position = pos;
                 if (direction.sqrMagnitude > 0.0001f) go.transform.forward = direction;
 
-                init?.Invoke(go, index, pos, direction);
+                init?.Invoke(go, i, pos, direction);
             });
         }
 
         protected void ReturnAllSpawned()
         {
-            //Debug.Log($"@@@@@Returning all spawned objects for {GetType().Name}, count: {_spawnedTracked.Count}");
             if (_spawnedTracked == null || _spawnedTracked.Count == 0) return;
 
-            for (int i = 0; i < _spawnedTracked.Count; i++)
+            for (int g = 0; g < _spawnedTracked.Count; g++)
             {
-                GameObject go = _spawnedTracked[i];
-                if (go == null) continue;
-                if (go.activeSelf) ManagerPrefabPooler.Instance.ReturnToPool(go);
-                _spawnedTracked[i] = null;
+                var group = _spawnedTracked[g];
+                if (group == null) continue;
+
+                for (int i = 0; i < group.Count; i++)
+                {
+                    var go = group[i];
+                    if (go == null) continue;
+                    if (go.activeSelf) ManagerPrefabPooler.Instance.ReturnToPool(go);
+                    group[i] = null;
+                }
+                group.Clear();
             }
             _spawnedTracked.Clear();
-            _spawnedIndices?.Clear();
-            _followTotalCount = 0;
         }
+
 
         protected static void GeneratePatternDirections(int count, Vector3 baseDirection,
             SHOOTING_PATTERN pattern, float coneAngle, List<Vector3> outDirs)
@@ -563,35 +592,36 @@ namespace Game.SkillSystem
 
         protected void UpdateSpawnPatternFollow()
         {
-            if (!_enableSpawnPattern || SpawnPattern == null || !SpawnPattern.FollowUser)
-                return;
-
-            if (_spawnedTracked == null || _spawnedTracked.Count == 0)
-                return;
-
-            if (_followTotalCount <= 0)
-                _followTotalCount = Mathf.Max(_followTotalCount, _spawnedTracked.Count);
+            if (!_enableSpawnPattern || SpawnPattern == null || !SpawnPattern.FollowUser) return;
+            if (_spawnedTracked == null || _spawnedTracked.Count == 0) return;
 
             Vector3 userPos = GetUserTransform().position;
             Vector3 baseDir = GetDirection(_direction);
-            SHOOTING_PATTERN pattern = SpawnPattern.Pattern;
+            var pattern = SpawnPattern.Pattern;
             float cone = SpawnPattern.ConeAngle;
             Vector3 offset = SpawnPattern.SpawnOffset;
 
-            for (int slot = 0; slot < _spawnedTracked.Count; slot++)
+            for (int g = 0; g < _spawnedTracked.Count; g++)
             {
-                GameObject go = _spawnedTracked[slot];
-                if (go == null) continue;
+                var group = _spawnedTracked[g];
+                if (group == null) continue;
 
-                int idx = (slot < _spawnedIndices.Count) ? _spawnedIndices[slot] : slot;
+                int countForPattern = group.Count; // simple: use current size
 
-                Vector3 dir = GetPatternDirectionAt(idx, _followTotalCount, baseDir, pattern, cone);
-                Vector3 pos = ComputeSpawnPosition(userPos, dir, offset);
+                for (int i = 0; i < group.Count; i++)
+                {
+                    GameObject go = group[i];
+                    if (go == null) continue;
 
-                go.transform.position = pos;
-                if (dir.sqrMagnitude > 0.0001f) go.transform.forward = dir;
+                    Vector3 dir = GetPatternDirectionAt(i, countForPattern, baseDir, pattern, cone);
+                    Vector3 pos = ComputeSpawnPosition(userPos, dir, offset);
+
+                    go.transform.position = pos;
+                    if (dir.sqrMagnitude > 0.0001f) go.transform.forward = dir;
+                }
             }
         }
+
 
         protected static Vector3 ComputeSpawnPosition(Vector3 userPos, Vector3 direction, Vector3 spawnOffset)
         {
@@ -606,6 +636,11 @@ namespace Game.SkillSystem
         #endregion PatternSystem
 
         #region Getters and Setters
+
+        /// <summary>
+        /// Returns the user of the ability. Use GetLaunchUser() to get the launch user.
+        /// </summary>
+        /// <returns></returns>
         public GameObject GetUser()
         {
             return _user;
@@ -614,6 +649,22 @@ namespace Game.SkillSystem
         public void SetUser(GameObject user)
         {
             _user = user;
+        }
+
+        /// <summary>
+        /// Returns the launch user of the ability. If not set, returns the user.
+        /// </summary>
+        public GameObject GetLaunchUser()
+        {
+            if (_launchUser != null)
+                return _launchUser;
+
+            return _user;
+        }
+
+        public void SetLaunchUser(GameObject launchUser)
+        {
+            _launchUser = launchUser;
         }
 
         public int GetSlot()
@@ -628,12 +679,17 @@ namespace Game.SkillSystem
 
         public GameObject GetGameObject()
         {
-            return _user;
+            return GetLaunchUser();
         }
 
         public IOwner GetRootOwner()
         {
             return this;
+        }
+
+        public AbilityAnimation GetAbilityAnimation()
+        {
+            return _abilityAnimation;
         }
 
         public void SetOwner(OWNER_TYPE ownerType)

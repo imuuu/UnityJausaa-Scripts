@@ -166,12 +166,14 @@ public class ManagerMob : MonoBehaviour
 
         // Create NativeArrays for enemy positions and their computed distances.
         NativeArray<Vector3> enemyPositions = new NativeArray<Vector3>(enemyCount, Allocator.TempJob);
+        NativeArray<float> enemyWidths = new NativeArray<float>(enemyCount, Allocator.TempJob);
         NativeArray<float> distances = new NativeArray<float>(enemyCount, Allocator.TempJob);
 
         // Copy the positions of each enemy into the NativeArray.
         for (int i = 0; i < enemyCount; i++)
         {
             enemyPositions[i] = _enemyList[i].position;
+            enemyWidths[i] = _enemyList[i].GetComponent<IStatistics>()?.Width * 0.5f ?? 0f;
         }
 
         Vector3 playerPos = _player.position;
@@ -179,9 +181,10 @@ public class ManagerMob : MonoBehaviour
         // Create and schedule the job that computes the actual distances.
         DistanceJob job = new DistanceJob
         {
-            playerPosition = playerPos,
-            enemyPositions = enemyPositions,
-            distances = distances
+            PlayerPosition = playerPos,
+            EnemyPositions = enemyPositions,
+            EnemyWidths = enemyWidths,
+            Distances = distances
         };
 
         JobHandle handle = job.Schedule(enemyCount, 64);
@@ -213,6 +216,7 @@ public class ManagerMob : MonoBehaviour
             _farthestEnemies[i] = _enemyList[indices[enemyCount - 1 - i]];
 
         enemyPositions.Dispose();
+        enemyWidths.Dispose();
         distances.Dispose();
 
         return result;
@@ -244,19 +248,22 @@ public class ManagerMob : MonoBehaviour
 
         // Create persistent NativeArrays as they'll be disposed once the job is processed.
         NativeArray<Vector3> enemyPositions = new NativeArray<Vector3>(enemyCount, Allocator.Persistent);
+        NativeArray<float> enemyWidths = new NativeArray<float>(enemyCount, Allocator.Persistent);
         NativeArray<float> distances = new NativeArray<float>(enemyCount, Allocator.Persistent);
 
         for (int i = 0; i < enemyCount; i++)
         {
             enemyPositions[i] = enemyTransforms[i].position;
+            enemyWidths[i] = enemyTransforms[i].GetComponent<IStatistics>()?.Width * 0.5f ?? 0f;
         }
 
         Vector3 playerPos = _player.position;
         DistanceJob job = new DistanceJob
         {
-            playerPosition = playerPos,
-            enemyPositions = enemyPositions,
-            distances = distances
+            PlayerPosition = playerPos,
+            EnemyPositions = enemyPositions,
+            EnemyWidths = enemyWidths,
+            Distances = distances
         };
 
         // Schedule the job.
@@ -293,14 +300,15 @@ public class ManagerMob : MonoBehaviour
     /// </summary>
     struct DistanceJob : IJobParallelFor
     {
-        public Vector3 playerPosition;
-        [ReadOnly] public NativeArray<Vector3> enemyPositions;
-        public NativeArray<float> distances;
+        public Vector3 PlayerPosition;
+        [ReadOnly] public NativeArray<Vector3> EnemyPositions;
+        [ReadOnly] public NativeArray<float> EnemyWidths;
+        public NativeArray<float> Distances;
 
         public void Execute(int index)
         {
-            Vector3 diff = enemyPositions[index] - playerPosition;
-            distances[index] = diff.magnitude;
+            Vector3 diff = EnemyPositions[index] - PlayerPosition;
+            Distances[index] = diff.magnitude - EnemyWidths[index];
         }
     }
 

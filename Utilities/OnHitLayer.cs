@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Game.PoolSystem;
+using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -52,11 +53,36 @@ namespace Game.Utility
             [Tooltip("If true, forward aligns to contact normal before applying rotation offset.")]
             public bool AlignToNormal;
 
-            [Tooltip("Local/world offset applied after picking base position.")]
-            public Vector3 PositionOffset;
+            [Tooltip("Local offset applied after picking base position and final rotation (rot * offset).")]
+            [BoxGroup("Position")] public Vector3 PositionOffset;
+
+            [Tooltip("If true, forces Y of final position to PositionY (world).")]
+            [BoxGroup("Position")] public bool ForcePositionY;
+
+            [BoxGroup("Position"), ShowIf(nameof(ForcePositionY))]
+            public float PositionY;
 
             [Tooltip("Euler rotation added after base rotation (and optional normal alignment).")]
-            public Vector3 RotationOffsetEuler;
+            [BoxGroup("Rotation")] public Vector3 RotationOffsetEuler;
+
+            [Tooltip("Lock the corresponding world Euler axis to a specific value (in degrees).")]
+            [BoxGroup("Rotation")] public bool LockRotationX;
+            [BoxGroup("Rotation"), ShowIf(nameof(LockRotationX))] public float LockRotationXValue;
+
+            [BoxGroup("Rotation")] public bool LockRotationY;
+            [BoxGroup("Rotation"), ShowIf(nameof(LockRotationY))] public float LockRotationYValue;
+
+            [BoxGroup("Rotation")] public bool LockRotationZ;
+            [BoxGroup("Rotation"), ShowIf(nameof(LockRotationZ))] public float LockRotationZValue;
+
+            [Tooltip("If true, adds a random Euler within [Min, Max].")]
+            [BoxGroup("Rotation")] public bool RandomizeRotation;
+
+            [BoxGroup("Rotation"), ShowIf(nameof(RandomizeRotation))]
+            public Vector3 RandomRotationMin;
+
+            [BoxGroup("Rotation"), ShowIf(nameof(RandomizeRotation))]
+            public Vector3 RandomRotationMax;
 
             [Tooltip("Optional parent override for the spawned objects.")]
             public Transform ParentOverride;
@@ -201,23 +227,59 @@ namespace Game.Utility
                             GameObject spawned = GetPooledOrInstantiate(spec.Prefab);
                             if (spawned == null) continue;
 
-                            Vector3 basePos = spec.UseContactPoint ? contactPoint : transform.position;
-                            Vector3 pos = basePos + spec.PositionOffset;
+                            // ---------- Rotation ----------
+                            // Base rotation: either spawner rotation or aligned to contact normal.
+                            Quaternion baseRot = transform.rotation;
+                            if (spec.AlignToNormal && contactNormal.sqrMagnitude > 0.0001f)
+                                baseRot = Quaternion.LookRotation(contactNormal.normalized);
 
-                            Quaternion rot = transform.rotation;
-                            if (spec.AlignToNormal)
+                            // Apply authored rotation offset.
+                            Quaternion rot = baseRot * Quaternion.Euler(spec.RotationOffsetEuler);
+
+                            // Optional randomization.
+                            if (spec.RandomizeRotation)
                             {
-                                // Align forward to impact normal (fallback to current rotation if zero)
-                                if (contactNormal.sqrMagnitude > 0.0001f)
-                                    rot = Quaternion.LookRotation(contactNormal);
+                                Vector3 min = spec.RandomRotationMin;
+                                Vector3 max = spec.RandomRotationMax;
+                                if (max.x < min.x) (min.x, max.x) = (max.x, min.x);
+                                if (max.y < min.y) (min.y, max.y) = (max.y, min.y);
+                                if (max.z < min.z) (min.z, max.z) = (max.z, min.z);
+
+                                Vector3 randEuler = new Vector3(
+                                    UnityEngine.Random.Range(min.x, max.x),
+                                    UnityEngine.Random.Range(min.y, max.y),
+                                    UnityEngine.Random.Range(min.z, max.z)
+                                );
+                                rot *= Quaternion.Euler(randEuler);
                             }
-                            rot *= Quaternion.Euler(spec.RotationOffsetEuler);
 
+                            // Apply axis locks LAST so they always win.
+                            if (spec.LockRotationX || spec.LockRotationY || spec.LockRotationZ)
+                            {
+                                rot = ApplyRotationLocks(
+                                    rot,
+                                    spec.LockRotationX, spec.LockRotationXValue,
+                                    spec.LockRotationY, spec.LockRotationYValue,
+                                    spec.LockRotationZ, spec.LockRotationZValue
+                                );
+                            }
+
+                            // ---------- Position ----------
+                            Vector3 basePos = spec.UseContactPoint ? contactPoint : transform.position;
+
+                            // Offset is applied in the final rotation's local space (rot * offset).
+                            Vector3 pos = basePos + (rot * spec.PositionOffset);
+
+                            // Optional Y override (world).
+                            if (spec.ForcePositionY)
+                                pos.y = spec.PositionY;
+
+                            // ---------- Apply ----------
                             Transform parent = spec.ParentOverride != null ? spec.ParentOverride : null;
-
                             Transform tr = spawned.transform;
-                            tr.SetPositionAndRotation(pos, rot);
+
                             tr.SetParent(parent, worldPositionStays: true);
+                            tr.SetPositionAndRotation(pos, rot);
                             if (!spawned.activeSelf) spawned.SetActive(true);
                         }
                     }
@@ -252,14 +314,32 @@ namespace Game.Utility
         private static GameObject GetPooledOrInstantiate(GameObject prefab)
         {
             // Uses your pooler if available; falls back to Instantiate.
-            // Example from user: ManagerPrefabPooler.Instance.GetFromPool(_spikeyBallsPrefab);
             var pool = ManagerPrefabPooler.Instance;
             GameObject go = pool != null ? pool.GetFromPool(prefab) : null;
             if (go == null)
-            {
                 go = Instantiate(prefab);
-            }
             return go;
+        }
+
+        /// <summary>
+        /// Locks specific world Euler axes of <paramref name="rotToModify"/> to exact degree values.
+        /// </summary>
+        private static Quaternion ApplyRotationLocks(Quaternion rotToModify,
+                                                     bool lockX, float lockXDeg,
+                                                     bool lockY, float lockYDeg,
+                                                     bool lockZ, float lockZDeg)
+        {
+            Vector3 e = rotToModify.eulerAngles;
+            if (lockX) e.x = NormalizeAngle(lockXDeg);
+            if (lockY) e.y = NormalizeAngle(lockYDeg);
+            if (lockZ) e.z = NormalizeAngle(lockZDeg);
+            return Quaternion.Euler(e);
+        }
+
+        private static float NormalizeAngle(float degrees)
+        {
+            // Keep angles in [0, 360) for stability.
+            return Mathf.Repeat(degrees, 360f);
         }
 
         private IEnumerator CoDeactivate(float delay)
@@ -278,13 +358,34 @@ namespace Game.Utility
         private void OnValidate()
         {
             if (_actions == null) return;
+
             for (int i = 0; i < _actions.Length; i++)
             {
                 if (_actions[i].Spawns == null) continue;
+
                 for (int s = 0; s < _actions[i].Spawns.Length; s++)
                 {
-                    if (_actions[i].Spawns[s].Count < 1)
-                        _actions[i].Spawns[s].Count = 1;
+                    var spec = _actions[i].Spawns[s];
+
+                    if (spec.Count < 1) spec.Count = 1;
+
+                    // Sanitize random ranges
+                    if (spec.RandomizeRotation)
+                    {
+                        if (spec.RandomRotationMax.x < spec.RandomRotationMin.x)
+                            (spec.RandomRotationMin.x, spec.RandomRotationMax.x) = (spec.RandomRotationMax.x, spec.RandomRotationMin.x);
+                        if (spec.RandomRotationMax.y < spec.RandomRotationMin.y)
+                            (spec.RandomRotationMin.y, spec.RandomRotationMax.y) = (spec.RandomRotationMax.y, spec.RandomRotationMin.y);
+                        if (spec.RandomRotationMax.z < spec.RandomRotationMin.z)
+                            (spec.RandomRotationMin.z, spec.RandomRotationMax.z) = (spec.RandomRotationMax.z, spec.RandomRotationMin.z);
+                    }
+
+                    // Normalize lock angles for stability
+                    if (spec.LockRotationX) spec.LockRotationXValue = NormalizeAngle(spec.LockRotationXValue);
+                    if (spec.LockRotationY) spec.LockRotationYValue = NormalizeAngle(spec.LockRotationYValue);
+                    if (spec.LockRotationZ) spec.LockRotationZValue = NormalizeAngle(spec.LockRotationZValue);
+
+                    _actions[i].Spawns[s] = spec;
                 }
             }
         }

@@ -75,7 +75,7 @@ namespace Game.SkillSystem
         private List<Vector3[]> _branchSegments;
         private List<Vector3[]> _finalPointsList;
 
-        private Transform _transform => GetUser().transform;
+        private Transform _transform => GetLaunchUser().transform;
         private bool _generated = false;
         private GameObject _lightningBolt_SECOND;
 

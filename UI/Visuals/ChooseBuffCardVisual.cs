@@ -9,7 +9,7 @@ using Nova.TMP;
 using UnityEngine;
 
 [System.Serializable]
-public class ChooseBuffCardVisual : ItemVisuals
+public class ChooseBuffCardVisual : BuffCardVisual
 {
     public UIBlock2D Icon;
     public UIBlock2D NewIcon;
@@ -28,10 +28,11 @@ public class ChooseBuffCardVisual : ItemVisuals
     public Color _hoverColor = Color.white;
     public Color _mainGradientColor = Color.white;
 
-    public void Bind(int index, BuffCard buffCard)
+    public override void Bind(int index, BuffCard buffCard)
     {
-        DisableAll();
-        buffCard.ApplyBuffToVisual(index, this);
+        base.Bind(index, buffCard);
+        // DisableAll();
+        // buffCard.ApplyBuffToVisual(index, this);
 
         RarityDefinition modRarity = buffCard.RarityDefinition;
 
@@ -144,7 +145,7 @@ public class ChooseBuffCardVisual : ItemVisuals
         //Debug.Log("ChanceColor: " + rarity.Rarity + " - " + rarity.MainColor + " - " + rarity.HoverColor);
     }
 
-    private void DisableAll()
+    protected override void DisableAll()
     {
         Icon.gameObject.SetActive(false);
         NewIcon.gameObject.SetActive(false);

@@ -1,21 +1,18 @@
 using UnityEngine;
 using Game.Mobs;
-using Sirenix.Serialization;
 using Sirenix.OdinInspector;
 using System.Collections.Generic;
-using Game.Extensions;
 using Game.SkillSystem;
 
-public class BossController : Mob, IBoss
+public class BossController : Mob, IBoss, ISkillExecuteHandler
 {
-    [SerializeField] private bool _debug;
-    [OdinSerialize, SerializeReference]
-    private List<BossAbilityHolder> _abilityHolders;
+    // [SerializeField] private bool _debug;
+    // [OdinSerialize, SerializeReference]
+    // private List<BossAbilityHolder> _abilityHolders;
 
     private ManagerBosses _manager;
     private BossDefinition _def;
-    private BossPhaseRunner _phaseRunner;
-    private BossAbilityRunner _abilityRunner;
+    
 
     private MobData _mobData;
 
@@ -36,13 +33,15 @@ public class BossController : Mob, IBoss
         _owner = GetComponent<IOwner>();
     }
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
+        base.OnEnable();
         _health.OnDeath += Die;
     }
 
-    private void OnDisable()
+    protected override void OnDisable()
     {
+        base.OnDisable();
         _health.OnDeath -= Die;
     }
 
@@ -59,30 +58,15 @@ public class BossController : Mob, IBoss
     {
         _def = def; _manager = mgr;
         _mobData = def.MobData;
-        _phaseRunner = new BossPhaseRunner(def.Phases, this);
-        _abilityRunner = new BossAbilityRunner(this);
     }
 
     public void AITick(float dt)
     {
-        // Advance phase & apply phase modifiers
-        _phaseRunner.Tick(this, dt);
-        ApplyPhaseModifiers(_phaseRunner);
-
-        // Ability scheduling
-        _abilityRunner.Tick(dt);
     }
-
-    private void ApplyPhaseModifiers(BossPhaseRunner pr)
-    {
-        //_moveSpeedMult = pr.CurrentMoveSpeedMult; _damageMult = pr.CurrentDamageMult;
-    }
-
 
     private void Die()
     {
         ManagerBosses.Instance.OnBossDied(this);
-        //Destroy(gameObject);
     }
 
     public float GetHPPercent()
@@ -91,30 +75,30 @@ public class BossController : Mob, IBoss
         return Mathf.Clamp01(_health.GetHealth() / _health.GetMaxHealth());
     }
 
-    public void ExecuteSkill(SkillDefinition skillDefinition)
+    public void ExecuteSkill(SkillDefinition skillDefinition, List<MechanicHolder> mechanicHolders)
     {
-        Debug.Log($"Executing ability: {skillDefinition.name} on boss: {name}, holders count: {_abilityHolders.Count}");
-        Debug.Log($"Skill {skillDefinition.GetSkill()}");
+       // Debug.Log($"Executing ability: {skillDefinition.name} on boss: {name}, holders count: {_abilityHolders.Count}");
+        //Debug.Log($"Skill {skillDefinition.GetSkill()}");
         var ability = (skillDefinition.GetSkill() as Skill_SingleAbility).GetAbility();
-        List<BossAbilityHolder> holders = new();
+        List<MechanicHolder> holders = mechanicHolders;
 
         
-        foreach (var holder in _abilityHolders)
-        {
-            var holderAbilities = holder.GetAbilities();
-            foreach (var holderAbility in holderAbilities)
-            {
-                //Debug.Log($"Checking holder: {holder.name} for ability: {holderAbility.GetType().Name} vs {ability.GetType().Name}");
-                Debug.Log($"HolderAbility: {holderAbility}");
-                Debug.Log($"Ability: {ability}");
-                if (holderAbility.GetType() == ability.GetType())
-                {
-                    holders.Add(holder);
-                    Debug.Log($"Found holder: {holder.name} for ability: {holderAbility.GetType().Name}");
-                    break;
-                }
-            }
-        }
+        // foreach (var holder in abilityHolders)
+        // {
+        //     var holderAbilities = holder.GetAbilities();
+        //     foreach (var holderAbility in holderAbilities)
+        //     {
+        //         //Debug.Log($"Checking holder: {holder.name} for ability: {holderAbility.GetType().Name} vs {ability.GetType().Name}");
+        //         // Debug.Log($"HolderAbility: {holderAbility}");
+        //         // Debug.Log($"Ability: {ability}");
+        //         if (holderAbility.GetType() == ability.GetType())
+        //         {
+        //             holders.Add(holder);
+        //             Debug.Log($"Found holder: {holder.name} for ability: {holderAbility.GetType().Name}");
+        //             break;
+        //         }
+        //     }
+        // }
 
         Debug.Log($"Found {holders.Count} holders for ability: {ability.GetType().Name}");
 
@@ -122,7 +106,8 @@ public class BossController : Mob, IBoss
         {
             SkillDefinition clonedSkill = skillDefinition.Clone();
             //clonedSkill.SetOwner(_owner.GetOwnerType());
-            clonedSkill.SetUser(holder.gameObject);
+            clonedSkill.SetUser(this.gameObject);
+            clonedSkill.SetLaunchUser(holder.gameObject);
             clonedSkill.UpdateAbilityData();
             //clonedSkill.SetInstanceID(holder.GetInstanceID());
             clonedSkill.UseSkill(-1, _skillExecuteHandler);
@@ -130,11 +115,11 @@ public class BossController : Mob, IBoss
 
     }
 
-    [Button]
-    [GUIColor(0.5f, 1f, 0.5f)]
-    private void FindAllAbilityHolders()
-    {
-        _abilityHolders.Clear();
-        transform.TraverseChildren<BossAbilityHolder>(_abilityHolders);
-    }
+    // [Button]
+    // [GUIColor(0.5f, 1f, 0.5f)]
+    // private void FindAllAbilityHolders()
+    // {
+    //     _abilityHolders.Clear();
+    //     transform.TraverseChildren<BossAbilityHolder>(_abilityHolders);
+    // }
 }

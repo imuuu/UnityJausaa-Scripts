@@ -31,8 +31,12 @@ namespace Game.Mobs
         public void OnEnable()
         {
             _health.SetHealth(_mobData.GetHealthWithRoundTime());
-            _movement.SetSpeed(_mobData.MovementSpeed);
-            _movement.SetRotationSpeed(_mobData.RotationSpeed);
+            if (_movement != null)
+            {
+                _movement.SetSpeed(_mobData.MovementSpeed);
+                _movement.SetRotationSpeed(_mobData.RotationSpeed);
+            }
+            
             _damageDealer.SetDamage(_mobData.Damage);
         }
 

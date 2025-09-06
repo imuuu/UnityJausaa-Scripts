@@ -3,73 +3,84 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 
 public class ManagerMouseInput : MonoBehaviour
-{   
+{
     public static ManagerMouseInput Instance { get; private set; }
     public const uint MousePointerControlID = 1;
     public const uint ScrollWheelControlID = 2;
 
-    /// <summary>
-    /// Inverts the mouse wheel scroll direction.
-    /// </summary>
+    /// <summary>Invert scrolling direction.</summary>
     public bool InvertScrolling = true;
 
     [Title("Debug to see the camera")]
     [ReadOnly]
     [SerializeField] private Camera _mainCamera;
 
+    // Reunahavainnointiin RT:lle (virtuaali Mouse0)
+    private bool _lastGamepadMouse0;
+
     private void Awake()
     {
-        if(Instance == null) Instance = this;
+        if (Instance == null) Instance = this;
         else Destroy(this);
     }
 
     private void Update()
     {
-        if (!Input.mousePresent)
-        {
-            // Nothing to do, no mouse device detected
-            return;
-        }
-
         _mainCamera = Camera.main;
-        // Get the current world-space ray of the mouse
-        Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+        if (_mainCamera == null) return;
 
-        // Get the current scroll wheel delta
-        Vector2 mouseScrollDelta = Input.mouseScrollDelta;
+        // 1) Määritä ruutukoordinaatti yhdestä lähteestä:
+        //    - jos ohjain ohjaa kursoria → käytä virtuaalikurssoria
+        //    - muuten käytä oikeaa hiirtä
+        Vector2 screenPos = GamepadCursor.ControllingWithGamepad
+            ? GamepadCursor.CurrentScreenPosition
+            : (Vector2)Input.mousePosition;
 
-        // Check if there is any scrolling this frame
-        if (mouseScrollDelta != Vector2.zero)
+        // 2) Muodosta ray
+        Ray cursorRay = _mainCamera.ScreenPointToRay(screenPos);
+
+        // 3) Scroll (vain jos oikea hiiri on läsnä ja scrollaa)
+        Vector2 mouseScrollDelta = Vector2.zero;
+        if (Input.mousePresent)
         {
-            // Invert scrolling for a mouse-type experience,
-            // otherwise will scroll track-pad style.
-            if (InvertScrolling)
+            mouseScrollDelta = Input.mouseScrollDelta;
+            if (mouseScrollDelta != Vector2.zero)
             {
-                mouseScrollDelta.y *= -1f;
+                if (InvertScrolling) mouseScrollDelta.y *= -1f;
+                var scrollInteraction = new Interaction.Update(cursorRay, ScrollWheelControlID);
+                Interaction.Scroll(scrollInteraction, mouseScrollDelta);
             }
-
-            // Create a new Interaction.Update from the mouse ray and scroll wheel control id
-            Interaction.Update scrollInteraction = new Interaction.Update(mouseRay, ScrollWheelControlID);
-
-            // Feed the scroll update and scroll delta into Nova's Interaction APIs
-            Interaction.Scroll(scrollInteraction, mouseScrollDelta);
         }
 
+        // 4) Klikki: hiiri tai RT (virtuaali Mouse0)
+        bool mouse0Held = Input.GetMouseButton(0);
+        bool gamepad0Held = GamepadCursor.GamepadMouse0;
+        bool leftMouseButtonDown = mouse0Held || gamepad0Held;
 
-        bool leftMouseButtonDown = Input.GetMouseButton(0);
+        // (valinnainen) reunahavainnointi, jos tarvitset down/up -tietoa:
+        bool gamepad0Down = !_lastGamepadMouse0 && gamepad0Held;
+        bool gamepad0Up   =  _lastGamepadMouse0 && !gamepad0Held;
+        _lastGamepadMouse0 = gamepad0Held;
 
-        // Create a new Interaction.Update from the mouse ray and pointer control id
-        Interaction.Update pointInteraction = new Interaction.Update(mouseRay, MousePointerControlID);
-
-        // Feed the pointer update and pressed state to Nova's Interaction APIs
+        // 5) Syötä Nova:lle point-tilapäivitys
+        var pointInteraction = new Interaction.Update(cursorRay, MousePointerControlID);
         Interaction.Point(pointInteraction, leftMouseButtonDown);
+
+        // Jos joskus tarvitset erikseen painallus/release -signaalit,
+        // voit kutsua lisämetodeja tähän perustuen (esim. oma logiikka).
+        // Nova:n perus Point(..., pressed) riittää useimpiin UI- ja 3D-hit caseihin.
     }
 
     public bool TryGetCurrentRay(out Ray ray)
     {
-        if(Input.mousePresent)
+        _mainCamera = Camera.main;
+        if (_mainCamera != null)
         {
-            ray = _mainCamera.ScreenPointToRay(Input.mousePosition);
+            Vector2 screenPos = GamepadCursor.ControllingWithGamepad
+                ? GamepadCursor.CurrentScreenPosition
+                : (Vector2)Input.mousePosition;
+
+            ray = _mainCamera.ScreenPointToRay(screenPos);
             return true;
         }
 

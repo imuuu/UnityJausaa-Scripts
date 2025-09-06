@@ -1,12 +1,10 @@
 using UnityEngine;
 using Sirenix.OdinInspector;
 using System.Collections.Generic;
-using Sirenix.Serialization;
 
 
 #if UNITY_EDITOR
 using UnityEditor;
-using Sirenix.OdinInspector.Editor;
 #endif
 
 namespace Game.Mobs
@@ -14,7 +12,10 @@ namespace Game.Mobs
     [CreateAssetMenu(fileName = "MobData", menuName = "Game/Mobs/Mob Data")]
     public class MobData : SerializedScriptableObject
     {
+        [BoxGroup("Type And Name", ShowLabel = false)]
         public MOB_TYPE MobType;
+        [BoxGroup("Type And Name", ShowLabel = false)]
+        public string MobName;
         [BoxGroup("Visual & Prefab", ShowLabel = false)]
         [LabelText("Mob Prefab")]
         public GameObject Prefab;

@@ -3,6 +3,7 @@ using Game.UI;
 using Game.SkillSystem;
 using Game.ChunkSystem;
 using UnityEngine;
+using Game.BuffSystem;
 public static class Events
 {
     //public static readonly EventPoint onGameStart = new EventPoint();
@@ -43,7 +44,7 @@ public static class Events
     public static readonly EventPoint<PAUSE_REASON> OnGamePause = new();
     public static readonly EventPoint<PAUSE_REASON> OnGameUnPause = new();
 
-    public static readonly EventPoint OnBuffCardsOpen = new();
+    public static readonly EventPoint<BUFF_OPEN_TYPE> OnBuffCardsOpen = new();
     public static readonly EventPoint<int> OnBuffCardSelected = new();
 
     public static readonly EventPoint<float> OnRoundTimerUpdated = new();
@@ -87,9 +88,11 @@ public static class Events
     public static readonly EventPoint OnInteract = new();
     public static readonly EventPoint OnEscButtonPress = new();
 
-    public static EventPoint OnPlayerStatsUpdated = new(); 
-    
-    
+    public static EventPoint OnPlayerStatsUpdated = new();
+
+    public static EventPoint<BossController> OnBossSpawned = new();
+
+
 
     //public static readonly EventPoint<GroupSpawner,GameObject> OnSpawnerObjectDetach = new EventPoint<GroupSpawner,GameObject>();
 

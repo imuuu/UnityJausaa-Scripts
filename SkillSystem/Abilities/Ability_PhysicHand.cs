@@ -158,7 +158,7 @@ namespace Game.SkillSystem
 
             _dragY = DEFAULT_DRAG_Y;
             _state = PHYSIC_HAND_STATE.PICK_UP;
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(GamepadCursor.CurrentScreenPosition);
 
             if (Physics.Raycast(ray, out _hit))
             {
@@ -463,7 +463,7 @@ namespace Game.SkillSystem
         {
             if (_pickedRigidbody != null && _state == PHYSIC_HAND_STATE.DRAG)
             {
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Ray ray = Camera.main.ScreenPointToRay(GamepadCursor.CurrentScreenPosition);
                 float enter;
                 Vector3 currentMouseWorldPos = _lastMouseWorldPos;
                 if (_dragPlane.Raycast(ray, out enter))

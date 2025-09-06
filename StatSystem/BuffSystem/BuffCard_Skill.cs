@@ -15,8 +15,12 @@ namespace Game.BuffSystem
 
         public SkillDefinition SkillDefinition;
 
-        override public void ApplyBuffToVisual(int index, ChooseBuffCardVisual visual)
+        override public void ApplyBuffToVisual(int index, BuffCardVisual buffVisual)
         {
+            ChooseBuffCardVisual visual = buffVisual as ChooseBuffCardVisual;
+
+            if (visual == null) return;
+
             visual.Icon.gameObject.SetActive(true);
             visual.Icon.SetImage(SkillDefinition.Icon);
             visual.NewIcon.gameObject.SetActive(true);
@@ -26,11 +30,6 @@ namespace Game.BuffSystem
             visual.TextSkillDescription.gameObject.SetActive(true);
             visual.TextSkillDescription.text = SkillDefinition.Description;
 
-            // visual.TextSkillDescriptionSmall.gameObject.SetActive(false);
-
-            // visual.TextModifier1.gameObject.SetActive(false);
-            // visual.TextModifier2.gameObject.SetActive(false);
-            // visual.TextModifier3.gameObject.SetActive(false);
         }
 
         override public bool Roll()
